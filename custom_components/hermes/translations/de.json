@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Hermes verbinden",
-        "description": "Verbindungsdaten zum Hermes Gateway API-Server.",
+        "description": "Verbindungsdaten zum Hermes Gateway API-Server. Mehrere Einträge für verschiedene Profile möglich.",
         "data": {
           "host": "Host (IP oder Hostname)",
           "port": "Port",
@@ -19,6 +19,18 @@
           "profile": "Welches Hermes-Profil verwendet werden soll (z.B. default).",
           "model": "Modell-Override, z.B. google/gemini-2.5-flash. Leer = Server-Default.",
           "provider": "Provider für das Modell, z.B. openrouter. Leer = Server-Default."
+        }
+      },
+      "reconfigure": {
+        "title": "Hermes neu konfigurieren",
+        "description": "Aktualisiere die Verbindungsdaten zum Hermes Gateway API-Server.",
+        "data": {
+          "host": "Host (IP oder Hostname)",
+          "port": "Port",
+          "api_key": "API-Key (API_SERVER_KEY)",
+          "profile": "Profil",
+          "model": "Modell (optional)",
+          "provider": "Provider (optional)"
         }
       }
     },
@@ -46,5 +58,20 @@
         }
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": { "name": "Hermes verbunden" }
+    },
+    "sensor": {
+      "latency": { "name": "Hermes Latenz" },
+      "model": { "name": "Hermes Modell" },
+      "prompt_tokens": { "name": "Hermes Prompt-Tokens" },
+      "completion_tokens": { "name": "Hermes Completion-Tokens" },
+      "total_tokens": { "name": "Hermes Gesamt-Tokens" }
+    }
+  },
+  "notify": {
+    "notify": { "name": "Hermes Benachrichtigung" }
   }
 }

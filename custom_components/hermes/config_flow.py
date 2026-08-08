@@ -33,6 +33,38 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Known model prefix → provider mappings for auto-detection
+_MODEL_PROVIDER_MAP: dict[str, str] = {
+    "google/": "openrouter",
+    "anthropic/": "openrouter",
+    "meta-llama/": "openrouter",
+    "mistralai/": "openrouter",
+    "openai/": "openai",
+    "deepseek/": "deepseek",
+}
+
+# Common provider choices for the dropdown
+PROVIDER_OPTIONS: list[str] = [
+    "openrouter",
+    "openai",
+    "deepseek",
+    "anthropic",
+    "google",
+    "groq",
+    "xai",
+]
+
+
+def _suggest_provider(model: str) -> str:
+    """Auto-detect provider from model name prefix."""
+    if not model:
+        return ""
+    for prefix, provider in _MODEL_PROVIDER_MAP.items():
+        if model.startswith(prefix):
+            return provider
+    return ""
+
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -40,7 +72,9 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_API_KEY): str,
         vol.Required(CONF_PROFILE, default=DEFAULT_PROFILE): str,
         vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
-        vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): str,
+        vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): vol.In(
+            [""] + PROVIDER_OPTIONS
+        ),
     }
 )
 
@@ -95,6 +129,67 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
         """Return the options flow handler."""
         return HermesOptionsFlow()
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration (change host, port, api_key, profile)."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            client = HermesClient(
+                self.hass,
+                host=user_input[CONF_HOST],
+                port=user_input[CONF_PORT],
+                api_key=user_input[CONF_API_KEY],
+                profile=user_input[CONF_PROFILE],
+                timeout=DEFAULT_TIMEOUT,
+            )
+            try:
+                await client.async_validate()
+            except HermesAuthError:
+                errors["base"] = "invalid_auth"
+            except HermesApiError:
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error validating Hermes")
+                errors["base"] = "unknown"
+            else:
+                unique = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}:{user_input[CONF_PROFILE]}"
+                self._async_abort_entries_match(user_input)
+                return self.async_update_reload_and_abort(
+                    entry, data_updates=user_input, unique_id=unique
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_SCHEMA,
+                suggested_values=user_input or entry.data,
+            ),
+            errors=errors,
+        )
+
+    async def async_step_zeroconf(
+        self, discovery_info: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle zeroconf discovery of Hermes Gateway.
+
+        Dormant — Hermes Gateway does not yet broadcast mDNS.
+        When it does, this pre-fills host and port from discovery.
+        """
+        host = discovery_info.get("host") or discovery_info.get("ip_address", "")
+        port = discovery_info.get("port", DEFAULT_PORT)
+        await self.async_set_unique_id(f"{host}:{port}:{DEFAULT_PROFILE}")
+        self._abort_if_unique_id_configured()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_SCHEMA,
+                suggested_values={CONF_HOST: host, CONF_PORT: port},
+            ),
+        )
+
 
 class HermesOptionsFlow(OptionsFlow):
     """Options: adjust timeout, model, and provider."""
@@ -121,7 +216,9 @@ class HermesOptionsFlow(OptionsFlow):
                     int, vol.Range(min=5, max=300)
                 ),
                 vol.Optional(CONF_MODEL, default=current_model): str,
-                vol.Optional(CONF_PROVIDER, default=current_provider): str,
+                vol.Optional(CONF_PROVIDER, default=current_provider): vol.In(
+                    [""] + PROVIDER_OPTIONS
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
