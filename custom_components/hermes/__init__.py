@@ -12,9 +12,11 @@ from .api import HermesClient
 from .const import (
     CONF_API_KEY,
     CONF_HOST,
+    CONF_MODEL,
     CONF_PORT,
     CONF_PROFILE,
     CONF_TIMEOUT,
+    DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROFILE,
     DEFAULT_TIMEOUT,
@@ -40,6 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_key=entry.data[CONF_API_KEY],
         profile=entry.data.get(CONF_PROFILE, DEFAULT_PROFILE),
         timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
     )
 
     coordinator = HermesCoordinator(hass, entry, client)

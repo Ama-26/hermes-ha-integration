@@ -9,11 +9,13 @@ CONF_HOST = "host"
 CONF_PORT = "port"
 CONF_API_KEY = "api_key"
 CONF_PROFILE = "profile"
+CONF_MODEL = "model"
 CONF_TIMEOUT = "timeout"
 
 # Defaults
 DEFAULT_PORT = 8642
 DEFAULT_PROFILE = "default"
+DEFAULT_MODEL = ""  # empty = use API server default
 DEFAULT_TIMEOUT = 60
 
 # API paths

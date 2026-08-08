@@ -2,19 +2,21 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect Hermes Agent",
+        "title": "Connect Hermes",
         "description": "Connection details for the Hermes Gateway API server.",
         "data": {
           "host": "Host (IP or hostname)",
           "port": "Port",
           "api_key": "API key (API_SERVER_KEY)",
-          "profile": "Profile"
+          "profile": "Profile",
+          "model": "Model (optional)"
         },
         "data_description": {
           "host": "The IP of the server running the Hermes gateway.",
           "port": "Default: 8642",
           "api_key": "The API_SERVER_KEY from the Hermes .env.",
-          "profile": "Which Hermes profile to use (e.g. default)."
+          "profile": "Which Hermes profile to use (e.g. default).",
+          "model": "Model override, e.g. google/gemini-2.5-flash. Empty = server default."
         }
       }
     },
@@ -30,9 +32,13 @@
   "options": {
     "step": {
       "init": {
-        "title": "Hermes Agent Options",
+        "title": "Hermes Options",
         "data": {
-          "timeout": "Request timeout (seconds)"
+          "timeout": "Request timeout (seconds)",
+          "model": "Model override (optional)"
+        },
+        "data_description": {
+          "model": "e.g. google/gemini-2.5-flash. Leave empty for server default."
         }
       }
     }

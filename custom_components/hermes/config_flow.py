@@ -18,9 +18,11 @@ from .api import HermesApiError, HermesAuthError, HermesClient
 from .const import (
     CONF_API_KEY,
     CONF_HOST,
+    CONF_MODEL,
     CONF_PORT,
     CONF_PROFILE,
     CONF_TIMEOUT,
+    DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROFILE,
     DEFAULT_TIMEOUT,
@@ -35,6 +37,7 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
         vol.Required(CONF_API_KEY): str,
         vol.Required(CONF_PROFILE, default=DEFAULT_PROFILE): str,
+        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
     }
 )
 
@@ -58,6 +61,7 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
                 api_key=user_input[CONF_API_KEY],
                 profile=user_input[CONF_PROFILE],
                 timeout=DEFAULT_TIMEOUT,
+                model=user_input.get(CONF_MODEL, DEFAULT_MODEL),
             )
             try:
                 await client.async_validate()
@@ -89,7 +93,7 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class HermesOptionsFlow(OptionsFlow):
-    """Options: adjust request timeout."""
+    """Options: adjust request timeout and model."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -98,8 +102,18 @@ class HermesOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
-        current = self.config_entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+        current_timeout = self.config_entry.options.get(
+            CONF_TIMEOUT, DEFAULT_TIMEOUT
+        )
+        current_model = self.config_entry.options.get(
+            CONF_MODEL, self.config_entry.data.get(CONF_MODEL, DEFAULT_MODEL)
+        )
         schema = vol.Schema(
-            {vol.Required(CONF_TIMEOUT, default=current): vol.All(int, vol.Range(min=5, max=300))}
+            {
+                vol.Required(CONF_TIMEOUT, default=current_timeout): vol.All(
+                    int, vol.Range(min=5, max=300)
+                ),
+                vol.Optional(CONF_MODEL, default=current_model): str,
+            }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

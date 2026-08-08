@@ -59,12 +59,19 @@ class HermesClient:
         api_key: str,
         profile: str,
         timeout: int,
+        model: str = "",
     ) -> None:
-        """Initialise the client."""
+        """Initialise the client.
+
+        If ``model`` is non-empty, it is sent as the ``model`` field in the
+        chat completions payload, overriding the API server's default. If
+        empty, the logical model id ``hermes-agent`` is used (server picks).
+        """
         self._session: aiohttp.ClientSession = async_get_clientsession(hass)
         self._base = f"http://{host}:{port}"
         self._api_key = api_key
         self._profile = profile
+        self._model = model or MODEL_ID
         self._timeout = aiohttp.ClientTimeout(total=timeout)
 
     @property
@@ -114,7 +121,7 @@ class HermesClient:
             headers[HEADER_SESSION_ID] = session_id
 
         payload = {
-            "model": MODEL_ID,
+            "model": self._model,
             "messages": [{"role": "user", "content": text}],
         }
 
