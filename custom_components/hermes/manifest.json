@@ -1,7 +1,7 @@
 {
   "domain": "hermes",
   "name": "Hermes for HA",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/Ama-26/hermes-ha-integration",
   "issue_tracker": "https://github.com/Ama-26/hermes-ha-integration/issues",
   "codeowners": ["@Ama-26"],
@@ -9,5 +9,6 @@
   "integration_type": "service",
   "iot_class": "local_polling",
   "requirements": [],
-  "dependencies": ["conversation"]
+  "dependencies": ["conversation"],
+  "zeroconf": ["_hermes._tcp.local."]
 }
