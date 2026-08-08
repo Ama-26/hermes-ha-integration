@@ -11,6 +11,7 @@ requests, restoring the full conversation context.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -22,11 +23,13 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     HEADER_SESSION_ID,
+    MAX_RETRIES,
     MODEL_ID,
     PATH_CAPABILITIES,
     PATH_CHAT_TEMPLATE,
     PATH_HEALTH,
     PATH_MODELS,
+    RETRY_BASE_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -146,6 +149,15 @@ class HermesClient:
         the prior conversation context. The server's returned session id is
         included in the result so the caller can persist it for the next turn.
         """
+        return await _retry(
+            lambda: self._async_chat_raw(text, session_id),
+            _LOGGER,
+            "chat",
+        )
+
+    async def _async_chat_raw(
+        self, text: str, session_id: str | None
+    ) -> HermesChatResult:
         url = f"{self._base}{PATH_CHAT_TEMPLATE.format(profile=self._profile)}"
         headers = {**self._auth_headers, "Content-Type": "application/json"}
         if session_id:
@@ -207,6 +219,16 @@ class HermesClient:
         ``self._last_stream_session_id`` for the caller to use in
         subsequent turns.
         """
+        async for delta in _retry_stream(
+            lambda: self._async_chat_stream_raw(text, session_id),
+            _LOGGER,
+            "chat_stream",
+        ):
+            yield delta
+
+    async def _async_chat_stream_raw(
+        self, text: str, session_id: str | None
+    ) -> AsyncGenerator[dict[str, str], None]:
         url = f"{self._base}{PATH_CHAT_TEMPLATE.format(profile=self._profile)}"
         headers = {
             **self._auth_headers,
@@ -266,3 +288,67 @@ def _monotonic_ms() -> int:
     import time
 
     return int(time.monotonic() * 1000)
+
+
+async def _retry(
+    fn, logger: logging.Logger, name: str
+) -> HermesChatResult:
+    """Call *fn* with exponential backoff on transient errors.
+
+    Only retries on ``aiohttp.ClientError`` and ``TimeoutError``.
+    HTTP errors (4xx, 5xx) and ``HermesApiError`` are raised immediately.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            return await fn()
+        except HermesAuthError:
+            raise  # Auth errors are never transient
+        except HermesApiError:
+            raise  # HTTP/API errors are not transient
+        except (aiohttp.ClientError, TimeoutError) as err:
+            last_exc = err
+            if attempt < MAX_RETRIES:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "Hermes %s attempt %d/%d failed: %s. Retrying in %.1fs …",
+                    name, attempt + 1, MAX_RETRIES + 1, err, delay,
+                )
+                await asyncio.sleep(delay)
+    raise HermesApiError(
+        f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
+    ) from last_exc
+
+
+async def _retry_stream(
+    fn, logger: logging.Logger, name: str
+) -> AsyncGenerator[dict[str, str], None]:
+    """Call a stream generator with retry on transient errors.
+
+    Unlike ``_retry``, this wraps an async generator — if the first
+    chunk arrives successfully we assume the stream is established and
+    let subsequent errors propagate without retry.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            gen = fn()
+            async for chunk in gen:
+                yield chunk
+            return  # stream completed successfully
+        except HermesAuthError:
+            raise
+        except HermesApiError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            last_exc = err
+            if attempt < MAX_RETRIES:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "Hermes %s attempt %d/%d failed: %s. Retrying in %.1fs …",
+                    name, attempt + 1, MAX_RETRIES + 1, err, delay,
+                )
+                await asyncio.sleep(delay)
+    raise HermesApiError(
+        f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
+    ) from last_exc

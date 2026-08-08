@@ -36,3 +36,7 @@ MODEL_ID = "hermes-agent"
 
 # Coordinator / polling
 HEALTH_POLL_INTERVAL = 30  # seconds
+
+# Retry logic
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds, doubles each attempt
