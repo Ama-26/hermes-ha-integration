@@ -1,0 +1,6 @@
+{
+  "venvPath": "/home/sophie/hermes-ha-test",
+  "venv": "venv",
+  "reportMissingImports": "warning",
+  "typeCheckingMode": "basic"
+}

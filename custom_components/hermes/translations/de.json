@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hermes Agent verbinden",
+        "description": "Verbindungsdaten zum Hermes Gateway API-Server.",
+        "data": {
+          "host": "Host (IP oder Hostname)",
+          "port": "Port",
+          "api_key": "API-Key (API_SERVER_KEY)",
+          "profile": "Profil"
+        },
+        "data_description": {
+          "host": "Die IP des Servers, auf dem der Hermes-Gateway läuft.",
+          "port": "Standard: 8642",
+          "api_key": "Der API_SERVER_KEY aus der Hermes .env.",
+          "profile": "Welches Hermes-Profil verwendet werden soll (z.B. voicepe)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Hermes-Server fehlgeschlagen.",
+      "invalid_auth": "API-Key ungültig.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses Profil ist auf diesem Server bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hermes Agent Optionen",
+        "data": {
+          "timeout": "Anfrage-Timeout (Sekunden)"
+        }
+      }
+    }
+  }
+}
