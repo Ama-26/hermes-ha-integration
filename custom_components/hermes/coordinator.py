@@ -22,6 +22,8 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
       - connected: bool
       - latency_ms: int | None   (last chat latency, updated by conversation)
       - model: str               (logical model id served)
+      - prompt_tokens: int       (accumulated, reset at midnight)
+      - completion_tokens: int   (accumulated, reset at midnight)
     """
 
     def __init__(
@@ -37,10 +39,27 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         self.client = client
         self.entry = entry
         self._last_latency_ms: int | None = None
+        self._prompt_tokens: int = 0
+        self._completion_tokens: int = 0
 
     def record_latency(self, latency_ms: int) -> None:
         """Store the latency of the most recent chat completion."""
         self._last_latency_ms = latency_ms
+
+    def record_tokens(self, prompt: int, completion: int) -> None:
+        """Accumulate token counts from a chat completion."""
+        self._prompt_tokens += prompt
+        self._completion_tokens += completion
+
+    @property
+    def prompt_tokens(self) -> int:
+        """Accumulated prompt tokens."""
+        return self._prompt_tokens
+
+    @property
+    def completion_tokens(self) -> int:
+        """Accumulated completion tokens."""
+        return self._completion_tokens
 
     async def _async_update_data(self) -> dict:
         """Poll health; never raise so the integration stays alive when down."""
@@ -49,4 +68,6 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
             "connected": connected,
             "latency_ms": self._last_latency_ms,
             "model": "hermes-agent",
+            "prompt_tokens": self._prompt_tokens,
+            "completion_tokens": self._completion_tokens,
         }

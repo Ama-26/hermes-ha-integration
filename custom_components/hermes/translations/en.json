@@ -65,7 +65,10 @@
     },
     "sensor": {
       "latency": { "name": "Hermes Latency" },
-      "model": { "name": "Hermes Model" }
+      "model": { "name": "Hermes Model" },
+      "prompt_tokens": { "name": "Hermes Prompt Tokens" },
+      "completion_tokens": { "name": "Hermes Completion Tokens" },
+      "total_tokens": { "name": "Hermes Total Tokens" }
     }
   },
   "notify": {

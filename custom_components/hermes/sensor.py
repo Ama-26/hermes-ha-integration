@@ -1,4 +1,4 @@
-"""Sensors for Hermes Agent: latency and served model."""
+"""Sensors for Hermes Agent: latency, model, and token usage."""
 
 from __future__ import annotations
 
@@ -34,7 +34,20 @@ async def async_setup_entry(
         [
             HermesLatencySensor(entry, coordinator),
             HermesModelSensor(entry, coordinator),
+            HermesPromptTokensSensor(entry, coordinator),
+            HermesCompletionTokensSensor(entry, coordinator),
+            HermesTotalTokensSensor(entry, coordinator),
         ]
+    )
+
+
+def _make_device_info(entry: ConfigEntry) -> DeviceInfo:
+    """Return shared DeviceInfo for all sensor entities."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Hermes Gateway",
+        manufacturer="Nous Research",
+        model="Hermes Agent",
     )
 
 
@@ -54,12 +67,7 @@ class HermesLatencySensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
         """Initialise."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_latency"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Hermes Gateway",
-            manufacturer="Nous Research",
-            model="Hermes Agent",
-        )
+        self._attr_device_info = _make_device_info(entry)
 
     @property
     def native_value(self) -> int | None:
@@ -82,12 +90,7 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
         """Initialise."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_model"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Hermes Gateway",
-            manufacturer="Nous Research",
-            model="Hermes Agent",
-        )
+        self._attr_device_info = _make_device_info(entry)
 
     @property
     def native_value(self) -> str | None:
@@ -95,3 +98,78 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
         if not self.coordinator.data:
             return None
         return self.coordinator.data.get("model")
+
+
+class HermesPromptTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
+    """Accumulated prompt tokens (since last restart)."""
+
+    _attr_has_entity_name = False
+    _attr_translation_key = "prompt_tokens"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:counter"
+
+    def __init__(
+        self, entry: ConfigEntry, coordinator: HermesCoordinator
+    ) -> None:
+        """Initialise."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_prompt_tokens"
+        self._attr_device_info = _make_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return accumulated prompt tokens."""
+        if not self.coordinator.data:
+            return 0
+        return self.coordinator.data.get("prompt_tokens", 0)
+
+
+class HermesCompletionTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
+    """Accumulated completion tokens (since last restart)."""
+
+    _attr_has_entity_name = False
+    _attr_translation_key = "completion_tokens"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:counter"
+
+    def __init__(
+        self, entry: ConfigEntry, coordinator: HermesCoordinator
+    ) -> None:
+        """Initialise."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_completion_tokens"
+        self._attr_device_info = _make_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return accumulated completion tokens."""
+        if not self.coordinator.data:
+            return 0
+        return self.coordinator.data.get("completion_tokens", 0)
+
+
+class HermesTotalTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
+    """Total prompt + completion tokens (since last restart)."""
+
+    _attr_has_entity_name = False
+    _attr_translation_key = "total_tokens"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:sigma"
+
+    def __init__(
+        self, entry: ConfigEntry, coordinator: HermesCoordinator
+    ) -> None:
+        """Initialise."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_total_tokens"
+        self._attr_device_info = _make_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        """Return total tokens."""
+        if not self.coordinator.data:
+            return 0
+        return (
+            self.coordinator.data.get("prompt_tokens", 0)
+            + self.coordinator.data.get("completion_tokens", 0)
+        )

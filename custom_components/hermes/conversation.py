@@ -103,13 +103,23 @@ class HermesConversationEntity(
         if (sid := self._coordinator.client._last_stream_session_id):
             self._sessions[conversation_id] = sid
 
-        # Push latency + connectivity to sensors
+        # Record token usage from the stream
+        usage = self._coordinator.client._last_stream_usage
+        if usage:
+            self._coordinator.record_tokens(
+                usage.get("prompt_tokens", 0),
+                usage.get("completion_tokens", 0),
+            )
+
+        # Push updates to sensors
         current = self._coordinator.data or {}
         self._coordinator.async_set_updated_data(
             {
                 "connected": True,
                 "latency_ms": current.get("latency_ms"),
                 "model": current.get("model", "hermes-agent"),
+                "prompt_tokens": self._coordinator.prompt_tokens,
+                "completion_tokens": self._coordinator.completion_tokens,
             }
         )
 

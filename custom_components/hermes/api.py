@@ -87,6 +87,7 @@ class HermesClient:
         self._provider = provider
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._last_stream_session_id: str | None = None
+        self._last_stream_usage: dict[str, int] = {}
 
     @property
     def _auth_headers(self) -> dict[str, str]:
@@ -259,6 +260,7 @@ class HermesClient:
 
                 # Capture the session id from response headers for continuity
                 self._last_stream_session_id = resp.headers.get(HEADER_SESSION_ID) or session_id
+                self._last_stream_usage: dict[str, int] = {}
 
                 # Parse SSE: data: {...}\n\n
                 async for line in resp.content:
@@ -270,6 +272,13 @@ class HermesClient:
                         break
                     try:
                         data = json.loads(data_str)
+                        # Capture usage from last chunk
+                        if "usage" in data:
+                            usage = data["usage"]
+                            self._last_stream_usage = {
+                                "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+                                "completion_tokens": int(usage.get("completion_tokens", 0)),
+                            }
                         choices = data.get("choices", [])
                         if choices:
                             delta = choices[0].get("delta", {})
