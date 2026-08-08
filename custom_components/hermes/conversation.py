@@ -4,6 +4,9 @@ Registers a HA conversation agent that forwards each utterance to the Hermes
 API server's profile-scoped chat endpoint and returns the assistant text for
 TTS. Conversation context is preserved per HA conversation_id by mapping it to
 a server-side Hermes session id (X-Hermes-Session-Id).
+
+Streaming is supported via SSE — content deltas are fed into HA's chat_log
+so TTS can start before the full response is generated.
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ class HermesConversationEntity(
     _attr_has_entity_name = True
     _attr_translation_key = "hermes"
     _attr_icon = "mdi:chat-processing"
+    _attr_supports_streaming = True
 
     def __init__(
         self, entry: ConfigEntry, coordinator: HermesCoordinator
@@ -64,45 +68,52 @@ class HermesConversationEntity(
         """Return supported languages. Hermes handles any language."""
         return conversation.MATCH_ALL
 
-    async def async_process(
-        self, user_input: conversation.ConversationInput
+    async def _async_handle_message(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
-        """Process a user utterance and return the assistant response."""
+        """Process a user utterance via the Hermes API.
+
+        Uses SSE streaming via chat_log.async_add_delta_content_stream()
+        so TTS can start before the full response is available.
+        Falls back to non-streaming if the client doesn't support it.
+        """
         conversation_id = user_input.conversation_id or user_input.text
         session_id = self._sessions.get(conversation_id)
 
         try:
-            result = await self._coordinator.client.async_chat(
+            # Use streaming path
+            stream = self._coordinator.client.async_chat_stream(
                 user_input.text, session_id
             )
+            content_stream = chat_log.async_add_delta_content_stream(
+                self.entity_id, stream
+            )
+            # Consume the entire stream to get the full response
+            [content async for content in content_stream]
         except HermesApiError as err:
-            _LOGGER.error("Hermes chat failed: %s", err)
+            _LOGGER.error("Hermes chat stream failed: %s", err)
             return _error_result(
                 "Ich konnte den Hermes-Agent gerade nicht erreichen.",
                 user_input,
             )
 
-        # Persist the returned session id for context on the next turn.
-        if result.session_id:
-            self._sessions[conversation_id] = result.session_id
+        # Persist the server-side session id for conversation continuity
+        if (sid := self._coordinator.client._last_stream_session_id):
+            self._sessions[conversation_id] = sid
 
-        # Record latency and push to sensors immediately (don't wait for poll).
-        self._coordinator.record_latency(result.latency_ms)
+        # Push latency + connectivity to sensors
         current = self._coordinator.data or {}
         self._coordinator.async_set_updated_data(
             {
-                "connected": current.get("connected", True),
-                "latency_ms": result.latency_ms,
+                "connected": True,
+                "latency_ms": current.get("latency_ms"),
                 "model": current.get("model", "hermes-agent"),
             }
         )
 
-        response = intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(result.content or "")
-        return conversation.ConversationResult(
-            response=response,
-            conversation_id=result.session_id or conversation_id,
-        )
+        return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
 
 def _error_result(
