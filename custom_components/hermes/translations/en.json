@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect Hermes",
-        "description": "Connection details for the Hermes Gateway API server.",
+        "description": "Connection details for the Hermes Gateway API server. Add multiple entries for different profiles.",
         "data": {
           "host": "Host (IP or hostname)",
           "port": "Port",
