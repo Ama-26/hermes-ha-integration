@@ -44,7 +44,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_key=entry.data[CONF_API_KEY],
         profile=entry.data.get(CONF_PROFILE, DEFAULT_PROFILE),
         timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
-        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        model=entry.options.get(
+            CONF_MODEL, entry.data.get(CONF_MODEL, DEFAULT_MODEL)
+        ),
         provider=entry.options.get(
             CONF_PROVIDER, entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
         ),
