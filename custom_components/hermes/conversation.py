@@ -117,7 +117,7 @@ class HermesConversationEntity(
             {
                 "connected": True,
                 "latency_ms": current.get("latency_ms"),
-                "model": current.get("model", "hermes-agent"),
+                "model": current.get("model", self._coordinator._model),
                 "prompt_tokens": self._coordinator.prompt_tokens,
                 "completion_tokens": self._coordinator.completion_tokens,
             }
