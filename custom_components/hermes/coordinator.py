@@ -41,6 +41,12 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         self._last_latency_ms: int | None = None
         self._prompt_tokens: int = 0
         self._completion_tokens: int = 0
+        # Use the actual configured model, fall back to the logical id
+        self._model = (
+            entry.options.get("model")
+            or entry.data.get("model")
+            or "hermes-agent"
+        )
 
     def record_latency(self, latency_ms: int) -> None:
         """Store the latency of the most recent chat completion."""
@@ -67,7 +73,7 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         return {
             "connected": connected,
             "latency_ms": self._last_latency_ms,
-            "model": "hermes-agent",
+            "model": self._model,
             "prompt_tokens": self._prompt_tokens,
             "completion_tokens": self._completion_tokens,
         }
