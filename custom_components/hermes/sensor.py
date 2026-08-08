@@ -13,8 +13,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN
 from .coordinator import HermesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class HermesLatencySensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
     _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:speedometer"
 
     def __init__(
         self, entry: ConfigEntry, coordinator: HermesCoordinator
@@ -51,6 +54,12 @@ class HermesLatencySensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
         """Initialise."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_latency"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Hermes Gateway",
+            manufacturer="Nous Research",
+            model="Hermes Agent",
+        )
 
     @property
     def native_value(self) -> int | None:
@@ -65,6 +74,7 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
 
     _attr_has_entity_name = False
     _attr_name = "Hermes Model"
+    _attr_icon = "mdi:robot"
 
     def __init__(
         self, entry: ConfigEntry, coordinator: HermesCoordinator
@@ -72,6 +82,12 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
         """Initialise."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_model"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Hermes Gateway",
+            manufacturer="Nous Research",
+            model="Hermes Agent",
+        )
 
     @property
     def native_value(self) -> str | None:

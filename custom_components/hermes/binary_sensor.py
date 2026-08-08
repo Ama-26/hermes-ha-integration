@@ -11,8 +11,10 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN
 from .coordinator import HermesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +39,7 @@ class HermesConnectedBinarySensor(
     _attr_has_entity_name = False
     _attr_name = "Hermes Connected"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_icon = "mdi:check-network"
 
     def __init__(
         self, entry: ConfigEntry, coordinator: HermesCoordinator
@@ -44,6 +47,12 @@ class HermesConnectedBinarySensor(
         """Initialise."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_connected"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Hermes Gateway",
+            manufacturer="Nous Research",
+            model="Hermes Agent",
+        )
 
     @property
     def is_on(self) -> bool:

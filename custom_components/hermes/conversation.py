@@ -13,6 +13,7 @@ import logging
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -40,6 +41,7 @@ class HermesConversationEntity(
 
     _attr_has_entity_name = True
     _attr_name = "Hermes"
+    _attr_icon = "mdi:chat-processing"
 
     def __init__(
         self, entry: ConfigEntry, coordinator: HermesCoordinator
@@ -48,6 +50,12 @@ class HermesConversationEntity(
         self._entry = entry
         self._coordinator = coordinator
         self._attr_unique_id = f"{entry.entry_id}_conversation"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Hermes Gateway",
+            manufacturer="Nous Research",
+            model="Hermes Agent",
+        )
         # Maps HA conversation_id -> Hermes server session id
         self._sessions: dict[str, str] = {}
 
