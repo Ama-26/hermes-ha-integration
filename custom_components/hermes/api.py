@@ -26,6 +26,7 @@ from .const import (
     PATH_CAPABILITIES,
     PATH_CHAT_TEMPLATE,
     PATH_HEALTH,
+    PATH_MODELS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,6 +116,26 @@ class HermesClient:
                     raise HermesApiError(f"Unexpected status: HTTP {resp.status}")
         except (aiohttp.ClientError, TimeoutError) as err:
             raise HermesApiError(f"Cannot reach Hermes API: {err}") from err
+
+    async def async_get_models(self) -> list[str]:
+        """Fetch available model names from the API server.
+
+        Returns the list of model ids from ``GET /v1/models``.
+        Returns an empty list if the endpoint is unreachable.
+        """
+        try:
+            async with self._session.get(
+                f"{self._base}{PATH_MODELS}",
+                headers=self._auth_headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+                return [m.get("id", "") for m in data.get("data", []) if m.get("id")]
+        except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError) as err:
+            _LOGGER.debug("Failed to fetch models: %s", err)
+            return []
 
     async def async_chat(
         self, text: str, session_id: str | None

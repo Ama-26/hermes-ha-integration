@@ -33,6 +33,38 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Known model prefix → provider mappings for auto-detection
+_MODEL_PROVIDER_MAP: dict[str, str] = {
+    "google/": "openrouter",
+    "anthropic/": "openrouter",
+    "meta-llama/": "openrouter",
+    "mistralai/": "openrouter",
+    "openai/": "openai",
+    "deepseek/": "deepseek",
+}
+
+# Common provider choices for the dropdown
+PROVIDER_OPTIONS: list[str] = [
+    "openrouter",
+    "openai",
+    "deepseek",
+    "anthropic",
+    "google",
+    "groq",
+    "xai",
+]
+
+
+def _suggest_provider(model: str) -> str:
+    """Auto-detect provider from model name prefix."""
+    if not model:
+        return ""
+    for prefix, provider in _MODEL_PROVIDER_MAP.items():
+        if model.startswith(prefix):
+            return provider
+    return ""
+
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -40,7 +72,9 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_API_KEY): str,
         vol.Required(CONF_PROFILE, default=DEFAULT_PROFILE): str,
         vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
-        vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): str,
+        vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): vol.In(
+            [""] + PROVIDER_OPTIONS
+        ),
     }
 )
 
@@ -162,7 +196,9 @@ class HermesOptionsFlow(OptionsFlow):
                     int, vol.Range(min=5, max=300)
                 ),
                 vol.Optional(CONF_MODEL, default=current_model): str,
-                vol.Optional(CONF_PROVIDER, default=current_provider): str,
+                vol.Optional(CONF_PROVIDER, default=current_provider): vol.In(
+                    [""] + PROVIDER_OPTIONS
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
