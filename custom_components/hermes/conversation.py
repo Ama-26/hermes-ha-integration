@@ -44,6 +44,7 @@ class HermesConversationEntity(
 
     _attr_has_entity_name = True
     _attr_translation_key = "hermes"
+    _attr_name = "Hermes"
     _attr_icon = "mdi:chat-processing"
     _attr_supports_streaming = True
 

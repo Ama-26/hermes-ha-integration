@@ -38,6 +38,7 @@ class HermesConnectedBinarySensor(
 
     _attr_has_entity_name = False
     _attr_translation_key = "connected"
+    _attr_name = "Hermes Connected"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_icon = "mdi:check-network"
 
