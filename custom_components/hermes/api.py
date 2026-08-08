@@ -60,18 +60,25 @@ class HermesClient:
         profile: str,
         timeout: int,
         model: str = "",
+        provider: str = "",
     ) -> None:
         """Initialise the client.
 
         If ``model`` is non-empty, it is sent as the ``model`` field in the
-        chat completions payload, overriding the API server's default. If
-        empty, the logical model id ``hermes-agent`` is used (server picks).
+        chat completions payload, overriding the API server's default. When
+        ``provider`` is also set, the API server routes to that provider
+        directly — required when the model name belongs to a different
+        provider than the gateway default.
+
+        If both are empty, the logical model id ``hermes-agent`` is used
+        (server picks its configured default).
         """
         self._session: aiohttp.ClientSession = async_get_clientsession(hass)
         self._base = f"http://{host}:{port}"
         self._api_key = api_key
         self._profile = profile
         self._model = model or MODEL_ID
+        self._provider = provider
         self._timeout = aiohttp.ClientTimeout(total=timeout)
 
     @property
@@ -120,10 +127,12 @@ class HermesClient:
         if session_id:
             headers[HEADER_SESSION_ID] = session_id
 
-        payload = {
+        payload: dict = {
             "model": self._model,
             "messages": [{"role": "user", "content": text}],
         }
+        if self._provider:
+            payload["provider"] = self._provider
 
         loop = _monotonic_ms()
         try:

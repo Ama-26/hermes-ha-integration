@@ -9,14 +9,16 @@
           "port": "Port",
           "api_key": "API key (API_SERVER_KEY)",
           "profile": "Profile",
-          "model": "Model (optional)"
+          "model": "Model (optional)",
+          "provider": "Provider (optional)"
         },
         "data_description": {
           "host": "The IP of the server running the Hermes gateway.",
           "port": "Default: 8642",
           "api_key": "The API_SERVER_KEY from the Hermes .env.",
           "profile": "Which Hermes profile to use (e.g. default).",
-          "model": "Model override, e.g. google/gemini-2.5-flash. Empty = server default."
+          "model": "Model override, e.g. google/gemini-2.5-flash. Empty = server default.",
+          "provider": "Provider for the model, e.g. openrouter. Empty = server default."
         }
       }
     },
@@ -35,10 +37,12 @@
         "title": "Hermes Options",
         "data": {
           "timeout": "Request timeout (seconds)",
-          "model": "Model override (optional)"
+          "model": "Model override (optional)",
+          "provider": "Provider (optional)"
         },
         "data_description": {
-          "model": "e.g. google/gemini-2.5-flash. Leave empty for server default."
+          "model": "e.g. google/gemini-2.5-flash. Leave empty for server default.",
+          "provider": "e.g. openrouter. Leave empty for server default."
         }
       }
     }

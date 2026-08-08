@@ -21,10 +21,12 @@ from .const import (
     CONF_MODEL,
     CONF_PORT,
     CONF_PROFILE,
+    CONF_PROVIDER,
     CONF_TIMEOUT,
     DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROFILE,
+    DEFAULT_PROVIDER,
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
@@ -38,6 +40,7 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_API_KEY): str,
         vol.Required(CONF_PROFILE, default=DEFAULT_PROFILE): str,
         vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
+        vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): str,
     }
 )
 
@@ -62,6 +65,7 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
                 profile=user_input[CONF_PROFILE],
                 timeout=DEFAULT_TIMEOUT,
                 model=user_input.get(CONF_MODEL, DEFAULT_MODEL),
+                provider=user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER),
             )
             try:
                 await client.async_validate()
@@ -93,7 +97,7 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class HermesOptionsFlow(OptionsFlow):
-    """Options: adjust request timeout and model."""
+    """Options: adjust timeout, model, and provider."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -108,12 +112,16 @@ class HermesOptionsFlow(OptionsFlow):
         current_model = self.config_entry.options.get(
             CONF_MODEL, self.config_entry.data.get(CONF_MODEL, DEFAULT_MODEL)
         )
+        current_provider = self.config_entry.options.get(
+            CONF_PROVIDER, self.config_entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+        )
         schema = vol.Schema(
             {
                 vol.Required(CONF_TIMEOUT, default=current_timeout): vol.All(
                     int, vol.Range(min=5, max=300)
                 ),
                 vol.Optional(CONF_MODEL, default=current_model): str,
+                vol.Optional(CONF_PROVIDER, default=current_provider): str,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
