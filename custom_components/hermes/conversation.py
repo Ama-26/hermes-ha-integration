@@ -40,7 +40,7 @@ class HermesConversationEntity(
     """A conversation agent backed by a Hermes profile."""
 
     _attr_has_entity_name = True
-    _attr_name = "Hermes"
+    _attr_translation_key = "hermes"
     _attr_icon = "mdi:chat-processing"
 
     def __init__(

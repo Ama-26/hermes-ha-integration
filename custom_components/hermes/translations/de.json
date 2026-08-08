@@ -58,5 +58,14 @@
         }
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": { "name": "Hermes verbunden" }
+    },
+    "sensor": {
+      "latency": { "name": "Hermes Latenz" },
+      "model": { "name": "Hermes Modell" }
+    }
   }
 }

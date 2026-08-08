@@ -42,7 +42,7 @@ class HermesLatencySensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
     """Last chat completion latency in milliseconds."""
 
     _attr_has_entity_name = False
-    _attr_name = "Hermes Latency"
+    _attr_translation_key = "latency"
     _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -73,7 +73,7 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
     """The logical model id served by the Hermes API."""
 
     _attr_has_entity_name = False
-    _attr_name = "Hermes Model"
+    _attr_translation_key = "model"
     _attr_icon = "mdi:robot"
 
     def __init__(
