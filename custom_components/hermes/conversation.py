@@ -77,7 +77,17 @@ class HermesConversationEntity(
         # Persist the returned session id for context on the next turn.
         if result.session_id:
             self._sessions[conversation_id] = result.session_id
+
+        # Record latency and push to sensors immediately (don't wait for poll).
         self._coordinator.record_latency(result.latency_ms)
+        current = self._coordinator.data or {}
+        self._coordinator.async_set_updated_data(
+            {
+                "connected": current.get("connected", True),
+                "latency_ms": result.latency_ms,
+                "model": current.get("model", "hermes-agent"),
+            }
+        )
 
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_speech(result.content or "")
