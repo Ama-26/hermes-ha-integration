@@ -95,6 +95,47 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
         """Return the options flow handler."""
         return HermesOptionsFlow()
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration (change host, port, api_key, profile)."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            client = HermesClient(
+                self.hass,
+                host=user_input[CONF_HOST],
+                port=user_input[CONF_PORT],
+                api_key=user_input[CONF_API_KEY],
+                profile=user_input[CONF_PROFILE],
+                timeout=DEFAULT_TIMEOUT,
+            )
+            try:
+                await client.async_validate()
+            except HermesAuthError:
+                errors["base"] = "invalid_auth"
+            except HermesApiError:
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error validating Hermes")
+                errors["base"] = "unknown"
+            else:
+                unique = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}:{user_input[CONF_PROFILE]}"
+                self._async_abort_entries_match(user_input)
+                return self.async_update_reload_and_abort(
+                    entry, data_updates=user_input, unique_id=unique
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_SCHEMA,
+                suggested_values=user_input or entry.data,
+            ),
+            errors=errors,
+        )
+
 
 class HermesOptionsFlow(OptionsFlow):
     """Options: adjust timeout, model, and provider."""

@@ -20,6 +20,18 @@
           "model": "Modell-Override, z.B. google/gemini-2.5-flash. Leer = Server-Default.",
           "provider": "Provider für das Modell, z.B. openrouter. Leer = Server-Default."
         }
+      },
+      "reconfigure": {
+        "title": "Hermes neu konfigurieren",
+        "description": "Aktualisiere die Verbindungsdaten zum Hermes Gateway API-Server.",
+        "data": {
+          "host": "Host (IP oder Hostname)",
+          "port": "Port",
+          "api_key": "API-Key (API_SERVER_KEY)",
+          "profile": "Profil",
+          "model": "Modell (optional)",
+          "provider": "Provider (optional)"
+        }
       }
     },
     "error": {
