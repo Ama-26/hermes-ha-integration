@@ -67,5 +67,8 @@
       "latency": { "name": "Hermes Latency" },
       "model": { "name": "Hermes Model" }
     }
+  },
+  "notify": {
+    "notify": { "name": "Hermes Notify" }
   }
 }
