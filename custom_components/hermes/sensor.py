@@ -56,6 +56,7 @@ class HermesLatencySensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
 
     _attr_has_entity_name = False
     _attr_translation_key = "latency"
+    _attr_name = "Hermes Latency"
     _attr_native_unit_of_measurement = UnitOfTime.MILLISECONDS
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -82,6 +83,7 @@ class HermesModelSensor(CoordinatorEntity[HermesCoordinator], SensorEntity):
 
     _attr_has_entity_name = False
     _attr_translation_key = "model"
+    _attr_name = "Hermes Model"
     _attr_icon = "mdi:robot"
 
     def __init__(
@@ -105,6 +107,7 @@ class HermesPromptTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntit
 
     _attr_has_entity_name = False
     _attr_translation_key = "prompt_tokens"
+    _attr_name = "Hermes Prompt Tokens"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_icon = "mdi:counter"
 
@@ -129,6 +132,7 @@ class HermesCompletionTokensSensor(CoordinatorEntity[HermesCoordinator], SensorE
 
     _attr_has_entity_name = False
     _attr_translation_key = "completion_tokens"
+    _attr_name = "Hermes Completion Tokens"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_icon = "mdi:counter"
 
@@ -153,6 +157,7 @@ class HermesTotalTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntity
 
     _attr_has_entity_name = False
     _attr_translation_key = "total_tokens"
+    _attr_name = "Hermes Total Tokens"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_icon = "mdi:sigma"
 

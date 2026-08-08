@@ -60,17 +60,15 @@
     }
   },
   "entity": {
-    "hermes": {
-      "binary_sensor": {
-        "connected": { "name": "Hermes verbunden" }
-      },
-      "sensor": {
-        "latency": { "name": "Hermes Latenz" },
-        "model": { "name": "Hermes Modell" },
-        "prompt_tokens": { "name": "Hermes Prompt-Tokens" },
-        "completion_tokens": { "name": "Hermes Completion-Tokens" },
-        "total_tokens": { "name": "Hermes Gesamt-Tokens" }
-      }
+    "binary_sensor": {
+      "connected": { "name": "Hermes verbunden" }
+    },
+    "sensor": {
+      "latency": { "name": "Hermes Latenz" },
+      "model": { "name": "Hermes Modell" },
+      "prompt_tokens": { "name": "Hermes Prompt-Tokens" },
+      "completion_tokens": { "name": "Hermes Completion-Tokens" },
+      "total_tokens": { "name": "Hermes Gesamt-Tokens" }
     }
   },
   "notify": {

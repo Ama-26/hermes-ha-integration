@@ -35,6 +35,7 @@ class HermesNotifyEntity(NotifyEntity):
 
     _attr_has_entity_name = True
     _attr_translation_key = "notify"
+    _attr_name = "Hermes Notify"
     _attr_icon = "mdi:message-alert"
 
     def __init__(
