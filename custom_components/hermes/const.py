@@ -13,7 +13,7 @@ CONF_TIMEOUT = "timeout"
 
 # Defaults
 DEFAULT_PORT = 8642
-DEFAULT_PROFILE = "voicepe"
+DEFAULT_PROFILE = "default"
 DEFAULT_TIMEOUT = 60
 
 # API paths

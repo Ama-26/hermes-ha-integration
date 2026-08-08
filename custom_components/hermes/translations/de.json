@@ -14,7 +14,7 @@
           "host": "Die IP des Servers, auf dem der Hermes-Gateway läuft.",
           "port": "Standard: 8642",
           "api_key": "Der API_SERVER_KEY aus der Hermes .env.",
-          "profile": "Welches Hermes-Profil verwendet werden soll (z.B. voicepe)."
+          "profile": "Welches Hermes-Profil verwendet werden soll (z.B. default)."
         }
       }
     },

@@ -1,6 +1,6 @@
 {
   "domain": "hermes",
-  "name": "Hermes Agent",
+  "name": "Hermes for HA",
   "version": "0.1.0",
   "documentation": "https://github.com/Ama-26/hermes-ha-integration",
   "issue_tracker": "https://github.com/Ama-26/hermes-ha-integration/issues",
