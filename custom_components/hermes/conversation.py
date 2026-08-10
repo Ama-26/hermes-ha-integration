@@ -83,6 +83,11 @@ class HermesConversationEntity(
         conversation_id = user_input.conversation_id or user_input.text
         session_id = self._sessions.get(conversation_id)
 
+        # Check session persistence switch
+        switch_state = self.hass.states.get("switch.hermes_session_persistence")
+        if switch_state is not None and switch_state.state == "off":
+            session_id = None  # force fresh session
+
         try:
             # Use streaming path
             stream = self._coordinator.client.async_chat_stream(
@@ -101,8 +106,10 @@ class HermesConversationEntity(
             )
 
         # Persist the server-side session id for conversation continuity
-        if (sid := self._coordinator.client._last_stream_session_id):
-            self._sessions[conversation_id] = sid
+        # (only when session persistence is enabled)
+        if switch_state is None or switch_state.state != "off":
+            if (sid := self._coordinator.client._last_stream_session_id):
+                self._sessions[conversation_id] = sid
 
         # Record token usage from the stream
         usage = self._coordinator.client._last_stream_usage
