@@ -68,11 +68,15 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         return self._completion_tokens
 
     async def _async_update_data(self) -> dict:
-        """Poll health; never raise so the integration stays alive when down."""
+        """Poll health; measure round-trip latency."""
+        import time
+        t0 = time.monotonic()
         connected = await self.client.async_health()
+        health_latency = round((time.monotonic() - t0) * 1000)
+        latency = self._last_latency_ms if self._last_latency_ms is not None else health_latency
         return {
             "connected": connected,
-            "latency_ms": self._last_latency_ms,
+            "latency_ms": latency,
             "model": self._model,
             "prompt_tokens": self._prompt_tokens,
             "completion_tokens": self._completion_tokens,
