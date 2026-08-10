@@ -44,6 +44,7 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         self._last_error: str | None = None
         self._error_count: int = 0
         self._last_error_time: datetime | None = None
+        self._last_interaction: datetime | None = None
         # Use the actual configured model, fall back to the logical id
         self._model = (
             entry.options.get("model")
@@ -60,6 +61,10 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         self._last_error = message
         self._error_count += 1
         self._last_error_time = datetime.now(timezone.utc)
+
+    def record_interaction(self) -> None:
+        """Record a successful chat interaction timestamp."""
+        self._last_interaction = datetime.now(timezone.utc)
 
     def record_tokens(self, prompt: int, completion: int) -> None:
         """Accumulate token counts from a chat completion."""
@@ -99,4 +104,5 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
             "error_count": self._error_count,
             "last_error_time": self._last_error_time.isoformat() if self._last_error_time else None,
             "error": error_active,
+            "last_interaction": self._last_interaction.isoformat() if self._last_interaction else None,
         }

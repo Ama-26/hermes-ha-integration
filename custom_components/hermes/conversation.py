@@ -119,6 +119,9 @@ class HermesConversationEntity(
                 usage.get("completion_tokens", 0),
             )
 
+        # Record successful interaction timestamp
+        self._coordinator.record_interaction()
+
         # Push updates to sensors
         current = self._coordinator.data or {}
         self._coordinator.async_set_updated_data(

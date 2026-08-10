@@ -69,7 +69,8 @@
       "model": { "name": "Hermes Model" },
       "prompt_tokens": { "name": "Hermes Prompt Tokens" },
       "completion_tokens": { "name": "Hermes Completion Tokens" },
-      "total_tokens": { "name": "Hermes Total Tokens" }
+      "total_tokens": { "name": "Hermes Total Tokens" },
+      "last_interaction": { "name": "Hermes Last Interaction" }
     },
     "switch": {
       "session_persistence": { "name": "Hermes Session Persistence" }

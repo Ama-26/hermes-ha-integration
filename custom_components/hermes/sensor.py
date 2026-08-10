@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -37,6 +38,7 @@ async def async_setup_entry(
             HermesPromptTokensSensor(entry, coordinator),
             HermesCompletionTokensSensor(entry, coordinator),
             HermesTotalTokensSensor(entry, coordinator),
+            HermesLastInteractionSensor(entry, coordinator),
         ]
     )
 
@@ -178,3 +180,36 @@ class HermesTotalTokensSensor(CoordinatorEntity[HermesCoordinator], SensorEntity
             self.coordinator.data.get("prompt_tokens", 0)
             + self.coordinator.data.get("completion_tokens", 0)
         )
+
+
+class HermesLastInteractionSensor(
+    CoordinatorEntity[HermesCoordinator], SensorEntity
+):
+    """Timestamp of the last successful chat interaction."""
+
+    _attr_has_entity_name = False
+    _attr_translation_key = "last_interaction"
+    _attr_name = "Hermes Last Interaction"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-check"
+
+    def __init__(
+        self, entry: ConfigEntry, coordinator: HermesCoordinator
+    ) -> None:
+        """Initialise."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_last_interaction"
+        self._attr_device_info = _make_device_info(entry)
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the last interaction as a datetime or None."""
+        if not self.coordinator.data:
+            return None
+        iso = self.coordinator.data.get("last_interaction")
+        if iso is None:
+            return None
+        try:
+            return datetime.fromisoformat(iso)
+        except (ValueError, TypeError):
+            return None
