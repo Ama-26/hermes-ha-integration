@@ -2,6 +2,17 @@
 
 All notable changes to the Hermes HA Integration.
 
+## [0.3.0] - 2026-08-10
+
+### Added
+- Error binary sensor (`binary_sensor.hermes_error`) with auto-clear after 1h
+- Session persistence switch (`switch.hermes_session_persistence`) with RestoreEntity
+- Last interaction timestamp sensor (`sensor.hermes_last_interaction`)
+
+### Changed
+- Latency sensor now measures health endpoint round-trip directly
+- API retry functions record errors for the error sensor
+
 ## [0.2.1] - 2026-08-10
 
 ### Fixed
