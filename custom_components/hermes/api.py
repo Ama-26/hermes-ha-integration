@@ -88,6 +88,7 @@ class HermesClient:
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._last_stream_session_id: str | None = None
         self._last_stream_usage: dict[str, int] = {}
+        self.coordinator: object | None = None  # set by async_setup_entry
 
     @property
     def _auth_headers(self) -> dict[str, str]:
@@ -154,6 +155,7 @@ class HermesClient:
             lambda: self._async_chat_raw(text, session_id),
             _LOGGER,
             "chat",
+            self.coordinator,
         )
 
     async def _async_chat_raw(
@@ -224,6 +226,7 @@ class HermesClient:
             lambda: self._async_chat_stream_raw(text, session_id),
             _LOGGER,
             "chat_stream",
+            self.coordinator,
         ):
             yield delta
 
@@ -300,7 +303,7 @@ def _monotonic_ms() -> int:
 
 
 async def _retry(
-    fn, logger: logging.Logger, name: str
+    fn, logger: logging.Logger, name: str, coordinator: object | None = None
 ) -> HermesChatResult:
     """Call *fn* with exponential backoff on transient errors.
 
@@ -324,13 +327,15 @@ async def _retry(
                     name, attempt + 1, MAX_RETRIES + 1, err, delay,
                 )
                 await asyncio.sleep(delay)
-    raise HermesApiError(
-        f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
-    ) from last_exc
+    # All retries exhausted — record error
+    msg = f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
+    if coordinator is not None and hasattr(coordinator, "record_error"):
+        coordinator.record_error(msg)
+    raise HermesApiError(msg) from last_exc
 
 
 async def _retry_stream(
-    fn, logger: logging.Logger, name: str
+    fn, logger: logging.Logger, name: str, coordinator: object | None = None
 ) -> AsyncGenerator[dict[str, str], None]:
     """Call a stream generator with retry on transient errors.
 
@@ -358,6 +363,9 @@ async def _retry_stream(
                     name, attempt + 1, MAX_RETRIES + 1, err, delay,
                 )
                 await asyncio.sleep(delay)
+    msg = f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
+    if coordinator is not None and hasattr(coordinator, "record_error"):
+        coordinator.record_error(msg)
     raise HermesApiError(
         f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
     ) from last_exc
