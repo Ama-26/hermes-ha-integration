@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 DOMAIN = "hermes"
 
 # Config entry keys
@@ -40,3 +42,6 @@ HEALTH_POLL_INTERVAL = 30  # seconds
 # Retry logic
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds, doubles each attempt
+
+# Error sensor
+ERROR_CLEAR_AFTER = timedelta(hours=1)

@@ -61,7 +61,8 @@
   },
   "entity": {
     "binary_sensor": {
-      "connected": { "name": "Hermes verbunden" }
+      "connected": { "name": "Hermes verbunden" },
+      "error": { "name": "Hermes Fehler" }
     },
     "sensor": {
       "latency": { "name": "Hermes Latenz" },
