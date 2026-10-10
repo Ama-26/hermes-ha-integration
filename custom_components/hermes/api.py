@@ -292,7 +292,9 @@ class HermesClient:
                         _LOGGER.debug("SSE parse error: %s", data_str[:100])
                         continue
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise HermesApiError(f"Chat stream failed: {err}") from err
+            raise HermesApiError(
+                f"Chat stream failed: {type(err).__name__}: {err}"
+            ) from err
 
 
 def _monotonic_ms() -> int:

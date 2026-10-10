@@ -99,7 +99,19 @@ class HermesConversationEntity(
             # Consume the entire stream to get the full response
             [content async for content in content_stream]
         except HermesApiError as err:
-            _LOGGER.error("Hermes chat stream failed: %s", err)
+            _LOGGER.error(
+                "Hermes chat stream failed: %s: %r", type(err).__name__, err
+            )
+            return _error_result(
+                "Ich konnte den Hermes-Agent gerade nicht erreichen.",
+                user_input,
+            )
+        except Exception as err:  # noqa: BLE001 — Stream/Fallback-Fehler sichtbar machen
+            _LOGGER.error(
+                "Hermes chat stream unexpected error: %s: %r",
+                type(err).__name__,
+                err,
+            )
             return _error_result(
                 "Ich konnte den Hermes-Agent gerade nicht erreichen.",
                 user_input,

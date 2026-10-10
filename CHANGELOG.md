@@ -2,6 +2,13 @@
 
 All notable changes to the Hermes HA Integration.
 
+## [0.3.1] - 2026-10-10
+
+### Fixed
+- Chat stream errors now log the exception type + repr — an empty `str()` (e.g. `TimeoutError`) produced message-less log lines that cost a diagnosis round
+- Conversation agent additionally catches unexpected exceptions in the chat stream/fallback path and returns the friendly error announcement instead of dying silently (pipeline death was invisible)
+- Manifest version bumped to 0.3.1
+
 ## [0.3.0] - 2026-08-10
 
 ### Added
