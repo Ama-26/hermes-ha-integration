@@ -2,6 +2,14 @@
 
 All notable changes to the Hermes HA Integration.
 
+## [0.4.0] - 2026-10-13
+
+### Security (Batch 2, audit findings C5 + C6)
+
+- Bounded reads: chat JSON bodies capped at 2 MB, single SSE lines at 64 KB, whole SSE streams at 10 MB — a compromised gateway can no longer OOM the HA core with an endless response (abort = non-transient error, no retry). SSE streams additionally get a 30 s `sock_read` idle timeout
+- Per-call stream context: session id and token usage are returned via a caller-supplied dict instead of shared client state — a concurrent notify stream can no longer overwrite the voice session's id (cross-channel session bleed race eliminated). Conversation and notify no longer touch shared mutable stream state
+- Chat error bodies now read with a 4 KB cap before logging
+
 ## [0.3.2] - 2026-10-13
 
 ### Security (Audit Run 1 + Run 2: 8 confirmed findings fixed or mitigated)

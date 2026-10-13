@@ -93,10 +93,14 @@ class HermesConversationEntity(
         if switch_state is not None and switch_state.state == "off":
             session_id = None  # force fresh session
 
+        # Per-call stream context: session id and usage land here instead of
+        # shared client state — a concurrent notify stream can no longer
+        # overwrite this turn's session id (cross-channel bleed, audit C6).
+        stream_ctx: dict = {}
         try:
             # Use streaming path
             stream = self._coordinator.client.async_chat_stream(
-                user_input.text, session_id
+                user_input.text, session_id, context=stream_ctx
             )
             content_stream = chat_log.async_add_delta_content_stream(
                 self.entity_id, stream
@@ -125,14 +129,14 @@ class HermesConversationEntity(
         # Persist the server-side session id for conversation continuity
         # (only when session persistence is enabled)
         if switch_state is None or switch_state.state != "off":
-            if conversation_id and (sid := self._coordinator.client._last_stream_session_id):
+            if conversation_id and (sid := stream_ctx.get("session_id")):
                 self._sessions[conversation_id] = sid
                 self._sessions.move_to_end(conversation_id)
                 while len(self._sessions) > MAX_SESSIONS:
                     self._sessions.popitem(last=False)
 
         # Record token usage from the stream
-        usage = self._coordinator.client._last_stream_usage
+        usage = stream_ctx.get("usage")
         if usage:
             self._coordinator.record_tokens(
                 usage.get("prompt_tokens", 0),

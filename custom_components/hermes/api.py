@@ -23,13 +23,17 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     HEADER_SESSION_ID,
+    MAX_RESPONSE_BYTES,
     MAX_RETRIES,
+    MAX_SSE_LINE_BYTES,
+    MAX_STREAM_BYTES,
     MODEL_ID,
     PATH_CAPABILITIES,
     PATH_CHAT_TEMPLATE,
     PATH_HEALTH,
     PATH_MODELS,
     RETRY_BASE_DELAY,
+    SSE_IDLE_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +81,22 @@ class HermesAuthError(HermesApiError):
     """Raised when authentication against the Hermes API server fails."""
 
 
+async def _read_bounded(resp: aiohttp.ClientResponse, cap: int) -> bytes:
+    """Read the full response body, aborting when it exceeds *cap* bytes.
+
+    A compromised gateway must not be able to OOM the HA core by sending an
+    endless body — the read aborts with a non-transient HermesApiError.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in resp.content.iter_any():
+        total += len(chunk)
+        if total > cap:
+            raise HermesApiError(f"Response body exceeded {cap} bytes — aborted")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @dataclass(slots=True)
 class HermesChatResult:
     """Result of a single chat completion."""
@@ -120,8 +140,10 @@ class HermesClient:
         self._model = model or MODEL_ID
         self._provider = provider
         self._timeout = aiohttp.ClientTimeout(total=timeout)
-        self._last_stream_session_id: str | None = None
-        self._last_stream_usage: dict[str, int] = {}
+        # Stream requests also abort when the server stops sending data
+        self._stream_timeout = aiohttp.ClientTimeout(
+            total=timeout, sock_read=SSE_IDLE_TIMEOUT
+        )
         self.coordinator: object | None = None  # set by async_setup_entry
 
     @property
@@ -215,11 +237,17 @@ class HermesClient:
                 if resp.status in (401, 403):
                     raise HermesAuthError(f"Auth failed: HTTP {resp.status}")
                 if resp.status != 200:
-                    body = await resp.text()
+                    body = await _read_bounded(resp, 4096)
                     raise HermesApiError(
-                        f"Chat failed: HTTP {resp.status}: {_log_safe(body)}"
+                        f"Chat failed: HTTP {resp.status}: {_log_safe(body.decode('utf-8', 'replace'))}"
                     )
-                data = await resp.json()
+                raw = await _read_bounded(resp, MAX_RESPONSE_BYTES)
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError as err:
+                    raise HermesApiError(
+                        f"Chat response is not valid JSON: {err}"
+                    ) from err
                 returned_sid = resp.headers.get(HEADER_SESSION_ID) or session_id
         except (aiohttp.ClientError, TimeoutError) as err:
             raise HermesApiError(f"Chat request failed: {err}", transient=True) from err
@@ -241,7 +269,10 @@ class HermesClient:
         )
 
     async def async_chat_stream(
-        self, text: str, session_id: str | None
+        self,
+        text: str,
+        session_id: str | None,
+        context: dict | None = None,
     ) -> AsyncGenerator[dict[str, str], None]:
         """Stream chat completions via SSE, yielding delta content dicts.
 
@@ -252,12 +283,15 @@ class HermesClient:
         The caller should feed these into
         ``chat_log.async_add_delta_content_stream()``.
 
-        The returned X-Hermes-Session-Id header is stored in
-        ``self._last_stream_session_id`` for the caller to use in
-        subsequent turns.
+        The per-call *context* dict receives the stream's outcome: after the
+        stream it contains ``session_id`` (the server's returned
+        X-Hermes-Session-Id) and ``usage`` (token counters). Passing a
+        dedicated dict per call keeps concurrent streams (voice + notify)
+        from overwriting each other's session bookkeeping.
         """
+        ctx = context if context is not None else {}
         async for delta in _retry_stream(
-            lambda: self._async_chat_stream_raw(text, session_id),
+            lambda: self._async_chat_stream_raw(text, session_id, ctx),
             _LOGGER,
             "chat_stream",
             self.coordinator,
@@ -265,7 +299,7 @@ class HermesClient:
             yield delta
 
     async def _async_chat_stream_raw(
-        self, text: str, session_id: str | None
+        self, text: str, session_id: str | None, ctx: dict
     ) -> AsyncGenerator[dict[str, str], None]:
         url = f"{self._base}{PATH_CHAT_TEMPLATE.format(profile=self._profile)}"
         headers = {
@@ -285,23 +319,40 @@ class HermesClient:
 
         try:
             async with self._session.post(
-                url, headers=headers, json=payload, timeout=self._timeout
+                url, headers=headers, json=payload, timeout=self._stream_timeout
             ) as resp:
                 if resp.status in (401, 403):
                     raise HermesAuthError(f"Auth failed: HTTP {resp.status}")
                 if resp.status != 200:
-                    body = await resp.text()
+                    body = await _read_bounded(resp, 4096)
                     raise HermesApiError(
-                        f"Chat stream failed: HTTP {resp.status}: {_log_safe(body)}"
+                        f"Chat stream failed: HTTP {resp.status}: {_log_safe(body.decode('utf-8', 'replace'))}"
                     )
 
-                # Capture the session id from response headers for continuity
-                self._last_stream_session_id = resp.headers.get(HEADER_SESSION_ID) or session_id
-                self._last_stream_usage: dict[str, int] = {}
+                # Per-call context: the session id and usage of THIS stream go
+                # into the caller-supplied dict — never into shared client
+                # state, so concurrent notify/voice streams cannot bleed into
+                # each other's session bookkeeping.
+                ctx["session_id"] = resp.headers.get(HEADER_SESSION_ID) or session_id
+                ctx["usage"] = {}
 
-                # Parse SSE: data: {...}\n\n
-                async for line in resp.content:
-                    line = line.decode("utf-8").strip()
+                # Parse SSE line by line with explicit byte caps. A single
+                # endless line or an endless stream must not grow unbounded.
+                total = 0
+                while True:
+                    raw_line = await resp.content.readline()
+                    if not raw_line:
+                        break
+                    total += len(raw_line)
+                    if total > MAX_STREAM_BYTES:
+                        raise HermesApiError(
+                            f"SSE stream exceeded {MAX_STREAM_BYTES} bytes — aborted"
+                        )
+                    if len(raw_line) > MAX_SSE_LINE_BYTES:
+                        raise HermesApiError(
+                            f"SSE line exceeded {MAX_SSE_LINE_BYTES} bytes — aborted"
+                        )
+                    line = raw_line.decode("utf-8").strip()
                     if not line or not line.startswith("data: "):
                         continue
                     data_str = line[6:]  # strip "data: " prefix
@@ -312,7 +363,7 @@ class HermesClient:
                         # Capture usage from last chunk
                         if "usage" in data:
                             usage = data["usage"]
-                            self._last_stream_usage = {
+                            ctx["usage"] = {
                                 "prompt_tokens": _safe_int(usage.get("prompt_tokens")),
                                 "completion_tokens": _safe_int(usage.get("completion_tokens")),
                             }
