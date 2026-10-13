@@ -14,6 +14,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import ssl as ssl_module
+from pathlib import Path
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
@@ -121,6 +123,8 @@ class HermesClient:
         timeout: int,
         model: str = "",
         provider: str = "",
+        use_ssl: bool = False,
+        ssl_cert_path: str = "",
     ) -> None:
         """Initialise the client.
 
@@ -132,9 +136,15 @@ class HermesClient:
 
         If both are empty, the logical model id ``hermes-agent`` is used
         (server picks its configured default).
+
+        With ``use_ssl`` the client talks HTTPS. If ``ssl_cert_path`` points to
+        a CA bundle / certificate file, that exact cert is pinned (self-signed
+        internal certificates are accepted only when this file trusts them);
+        without it, the system CA store is used.
         """
         self._session: aiohttp.ClientSession = async_get_clientsession(hass)
-        self._base = f"http://{host}:{port}"
+        scheme = "https" if use_ssl else "http"
+        self._base = f"{scheme}://{host}:{port}"
         self._api_key = api_key
         self._profile = profile
         self._model = model or MODEL_ID
@@ -144,6 +154,16 @@ class HermesClient:
         self._stream_timeout = aiohttp.ClientTimeout(
             total=timeout, sock_read=SSE_IDLE_TIMEOUT
         )
+        # False = plain HTTP (aiohttp ignores ssl for http URLs)
+        self._ssl: ssl_module.SSLContext | bool = False
+        if use_ssl:
+            if ssl_cert_path and Path(ssl_cert_path).is_file():
+                # Pin the gateway certificate: only this CA/cert is trusted
+                self._ssl = ssl_module.create_default_context(
+                    cafile=ssl_cert_path
+                )
+            else:
+                self._ssl = ssl_module.create_default_context()
         self.coordinator: object | None = None  # set by async_setup_entry
 
     @property
@@ -157,6 +177,7 @@ class HermesClient:
                 f"{self._base}{PATH_HEALTH}",
                 headers=self._auth_headers,
                 timeout=aiohttp.ClientTimeout(total=10),
+                ssl=self._ssl,
             ) as resp:
                 return resp.status == 200
         except (aiohttp.ClientError, TimeoutError) as err:
@@ -170,6 +191,7 @@ class HermesClient:
                 f"{self._base}{PATH_CAPABILITIES}",
                 headers=self._auth_headers,
                 timeout=aiohttp.ClientTimeout(total=10),
+                ssl=self._ssl,
             ) as resp:
                 if resp.status in (401, 403):
                     raise HermesAuthError(f"Auth failed: HTTP {resp.status}")
@@ -189,6 +211,7 @@ class HermesClient:
                 f"{self._base}{PATH_MODELS}",
                 headers=self._auth_headers,
                 timeout=aiohttp.ClientTimeout(total=10),
+                ssl=self._ssl,
             ) as resp:
                 if resp.status != 200:
                     return []
@@ -232,7 +255,8 @@ class HermesClient:
         loop = _monotonic_ms()
         try:
             async with self._session.post(
-                url, headers=headers, json=payload, timeout=self._timeout
+                url, headers=headers, json=payload, timeout=self._timeout,
+                ssl=self._ssl,
             ) as resp:
                 if resp.status in (401, 403):
                     raise HermesAuthError(f"Auth failed: HTTP {resp.status}")
@@ -273,6 +297,7 @@ class HermesClient:
         text: str,
         session_id: str | None,
         context: dict | None = None,
+        notification: bool = False,
     ) -> AsyncGenerator[dict[str, str], None]:
         """Stream chat completions via SSE, yielding delta content dicts.
 
@@ -291,7 +316,9 @@ class HermesClient:
         """
         ctx = context if context is not None else {}
         async for delta in _retry_stream(
-            lambda: self._async_chat_stream_raw(text, session_id, ctx),
+            lambda: self._async_chat_stream_raw(
+                text, session_id, ctx, notification
+            ),
             _LOGGER,
             "chat_stream",
             self.coordinator,
@@ -299,7 +326,8 @@ class HermesClient:
             yield delta
 
     async def _async_chat_stream_raw(
-        self, text: str, session_id: str | None, ctx: dict
+        self, text: str, session_id: str | None, ctx: dict,
+        notification: bool = False,
     ) -> AsyncGenerator[dict[str, str], None]:
         url = f"{self._base}{PATH_CHAT_TEMPLATE.format(profile=self._profile)}"
         headers = {
@@ -316,10 +344,16 @@ class HermesClient:
         }
         if self._provider:
             payload["provider"] = self._provider
+        if notification:
+            # Gateway presentation marker: this turn is a fire-and-forget
+            # notification, not a user conversation turn (keeps the agent's
+            # reply out of push/notification presentation; gateway >= 0.21.6).
+            payload["hermes_notification_category"] = "diagnostic"
 
         try:
             async with self._session.post(
-                url, headers=headers, json=payload, timeout=self._stream_timeout
+                url, headers=headers, json=payload, timeout=self._stream_timeout,
+                ssl=self._ssl,
             ) as resp:
                 if resp.status in (401, 403):
                     raise HermesAuthError(f"Auth failed: HTTP {resp.status}")

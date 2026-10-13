@@ -10,7 +10,9 @@
           "api_key": "API key (API_SERVER_KEY)",
           "profile": "Profile",
           "model": "Model (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "use_ssl": "Use HTTPS",
+          "ssl_cert_path": "Certificate path (optional)"
         },
         "data_description": {
           "host": "The IP of the server running the Hermes gateway.",
@@ -18,7 +20,9 @@
           "api_key": "The API_SERVER_KEY from the Hermes .env.",
           "profile": "Which Hermes profile to use (e.g. default).",
           "model": "Model override, e.g. google/gemini-2.5-flash. Empty = server default.",
-          "provider": "Provider for the model, e.g. openrouter. Empty = server default."
+          "provider": "Provider for the model, e.g. openrouter. Empty = server default.",
+          "use_ssl": "Enable when the gateway is reachable behind an HTTPS reverse proxy with a valid certificate.",
+          "ssl_cert_path": "Path to a CA file that signed the gateway certificate (cert pinning for self-signed). Empty = system CA store."
         }
       },
       "reconfigure": {
@@ -30,14 +34,21 @@
           "api_key": "API key (API_SERVER_KEY)",
           "profile": "Profile",
           "model": "Model (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "use_ssl": "Use HTTPS",
+          "ssl_cert_path": "Certificate path (optional)"
+        },
+        "data_description": {
+          "use_ssl": "Enable when the gateway is reachable behind an HTTPS reverse proxy with a valid certificate.",
+          "ssl_cert_path": "Path to a CA file that signed the gateway certificate (cert pinning for self-signed). Empty = system CA store."
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the Hermes server.",
       "invalid_auth": "Invalid API key.",
-      "unknown": "Unexpected error."
+      "unknown": "Unexpected error.",
+      "invalid_cert": "Certificate could not be loaded (check the path)."
     },
     "abort": {
       "already_configured": "This profile is already configured on this server."
@@ -61,22 +72,42 @@
   },
   "entity": {
     "binary_sensor": {
-      "connected": { "name": "Hermes Connected" },
-      "error": { "name": "Hermes Error" }
+      "connected": {
+        "name": "Hermes Connected"
+      },
+      "error": {
+        "name": "Hermes Error"
+      }
     },
     "sensor": {
-      "latency": { "name": "Hermes Latency" },
-      "model": { "name": "Hermes Model" },
-      "prompt_tokens": { "name": "Hermes Prompt Tokens" },
-      "completion_tokens": { "name": "Hermes Completion Tokens" },
-      "total_tokens": { "name": "Hermes Total Tokens" },
-      "last_interaction": { "name": "Hermes Last Interaction" }
+      "latency": {
+        "name": "Hermes Latency"
+      },
+      "model": {
+        "name": "Hermes Model"
+      },
+      "prompt_tokens": {
+        "name": "Hermes Prompt Tokens"
+      },
+      "completion_tokens": {
+        "name": "Hermes Completion Tokens"
+      },
+      "total_tokens": {
+        "name": "Hermes Total Tokens"
+      },
+      "last_interaction": {
+        "name": "Hermes Last Interaction"
+      }
     },
     "switch": {
-      "session_persistence": { "name": "Hermes Session Persistence" }
+      "session_persistence": {
+        "name": "Hermes Session Persistence"
+      }
     }
   },
   "notify": {
-    "notify": { "name": "Hermes Notify" }
+    "notify": {
+      "name": "Hermes Notify"
+    }
   }
 }

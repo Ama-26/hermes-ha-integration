@@ -10,7 +10,9 @@
           "api_key": "API-Key (API_SERVER_KEY)",
           "profile": "Profil",
           "model": "Modell (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "use_ssl": "HTTPS verwenden",
+          "ssl_cert_path": "Zertifikatspfad (optional)"
         },
         "data_description": {
           "host": "Die IP des Servers, auf dem der Hermes-Gateway läuft.",
@@ -18,7 +20,9 @@
           "api_key": "Der API_SERVER_KEY aus der Hermes .env.",
           "profile": "Welches Hermes-Profil verwendet werden soll (z.B. default).",
           "model": "Modell-Override, z.B. google/gemini-2.5-flash. Leer = Server-Default.",
-          "provider": "Provider für das Modell, z.B. openrouter. Leer = Server-Default."
+          "provider": "Provider für das Modell, z.B. openrouter. Leer = Server-Default.",
+          "use_ssl": "Aktivieren, wenn das Gateway hinter einem HTTPS-Proxy (Reverse Proxy) mit gültigem Zertifikat erreichbar ist.",
+          "ssl_cert_path": "Pfad zu einer CA-Datei, die das Gateway-Zertifikat signiert (Cert-Pinning bei Self-Signed). Leer = System-CA-Store."
         }
       },
       "reconfigure": {
@@ -30,14 +34,21 @@
           "api_key": "API-Key (API_SERVER_KEY)",
           "profile": "Profil",
           "model": "Modell (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "use_ssl": "HTTPS verwenden",
+          "ssl_cert_path": "Zertifikatspfad (optional)"
+        },
+        "data_description": {
+          "use_ssl": "Aktivieren, wenn das Gateway hinter einem HTTPS-Proxy (Reverse Proxy) mit gültigem Zertifikat erreichbar ist.",
+          "ssl_cert_path": "Pfad zu einer CA-Datei, die das Gateway-Zertifikat signiert (Cert-Pinning bei Self-Signed). Leer = System-CA-Store."
         }
       }
     },
     "error": {
       "cannot_connect": "Verbindung zum Hermes-Server fehlgeschlagen.",
       "invalid_auth": "API-Key ungültig.",
-      "unknown": "Unerwarteter Fehler."
+      "unknown": "Unerwarteter Fehler.",
+      "invalid_cert": "Zertifikat konnte nicht geladen werden (Pfad prüfen)."
     },
     "abort": {
       "already_configured": "Dieses Profil ist auf diesem Server bereits eingerichtet."
@@ -61,22 +72,42 @@
   },
   "entity": {
     "binary_sensor": {
-      "connected": { "name": "Hermes verbunden" },
-      "error": { "name": "Hermes Fehler" }
+      "connected": {
+        "name": "Hermes verbunden"
+      },
+      "error": {
+        "name": "Hermes Fehler"
+      }
     },
     "sensor": {
-      "latency": { "name": "Hermes Latenz" },
-      "model": { "name": "Hermes Modell" },
-      "prompt_tokens": { "name": "Hermes Prompt-Tokens" },
-      "completion_tokens": { "name": "Hermes Completion-Tokens" },
-      "total_tokens": { "name": "Hermes Gesamt-Tokens" },
-      "last_interaction": { "name": "Hermes Letzte Interaktion" }
+      "latency": {
+        "name": "Hermes Latenz"
+      },
+      "model": {
+        "name": "Hermes Modell"
+      },
+      "prompt_tokens": {
+        "name": "Hermes Prompt-Tokens"
+      },
+      "completion_tokens": {
+        "name": "Hermes Completion-Tokens"
+      },
+      "total_tokens": {
+        "name": "Hermes Gesamt-Tokens"
+      },
+      "last_interaction": {
+        "name": "Hermes Letzte Interaktion"
+      }
     },
     "switch": {
-      "session_persistence": { "name": "Hermes Session-Persistenz" }
+      "session_persistence": {
+        "name": "Hermes Session-Persistenz"
+      }
     }
   },
   "notify": {
-    "notify": { "name": "Hermes Benachrichtigung" }
+    "notify": {
+      "name": "Hermes Benachrichtigung"
+    }
   }
 }

@@ -39,6 +39,10 @@ MODEL_ID = "hermes-agent"
 # Coordinator / polling
 HEALTH_POLL_INTERVAL = 30  # seconds
 
+# TLS (audit C1: Bearer key must not travel in cleartext when enabled)
+CONF_USE_SSL = "use_ssl"
+CONF_SSL_CERT_PATH = "ssl_cert_path"
+
 # Retry logic
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds, doubles each attempt
