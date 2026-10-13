@@ -41,20 +41,36 @@ def _safe_int(value: object, default: int = 0) -> int:
     Gateway-supplied usage fields are untrusted: a ``None``/string value must
     not raise, and absurd/negative values must not poison token counters.
     """
-    if not isinstance(value, int) or isinstance(value, bool):
+    if isinstance(value, bool):
         return default
-    return max(0, value)
+    if isinstance(value, int):
+        return max(0, value)
+    # Tolerate gateway variants that report floats ("1234.0") or numeric strings
+    if isinstance(value, (float, str)):
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError, OverflowError):
+            return default
+    return default
 
 
 def _log_safe(text: str) -> str:
     """Strip control characters from a gateway-supplied log fragment."""
-    return "".join(
-        ch if ch.isprintable() else " " for ch in text
-    )[:200]
+    # Slice BEFORE sanitizing so an oversized body never materializes in full
+    return "".join(ch if ch.isprintable() else " " for ch in text[:400])[:200]
 
 
 class HermesApiError(Exception):
-    """Raised when the Hermes API server returns an error or is unreachable."""
+    """Raised when the Hermes API server returns an error or is unreachable.
+
+    ``transient=True`` marks connection-level failures (unreachable host,
+    timeouts, aborted connections) — those are the only HermesApiErrors the
+    retry helpers are allowed to retry.
+    """
+
+    def __init__(self, msg, *, transient: bool = False):
+        super().__init__(msg)
+        self.transient = transient
 
 
 class HermesAuthError(HermesApiError):
@@ -206,7 +222,7 @@ class HermesClient:
                 data = await resp.json()
                 returned_sid = resp.headers.get(HEADER_SESSION_ID) or session_id
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise HermesApiError(f"Chat request failed: {err}") from err
+            raise HermesApiError(f"Chat request failed: {err}", transient=True) from err
 
         latency_ms = _monotonic_ms() - loop
 
@@ -311,7 +327,7 @@ class HermesClient:
                         continue
         except (aiohttp.ClientError, TimeoutError) as err:
             raise HermesApiError(
-                f"Chat stream failed: {type(err).__name__}: {err}"
+                f"Chat stream failed: {type(err).__name__}: {err}", transient=True
             ) from err
 
 
@@ -336,8 +352,18 @@ async def _retry(
             return await fn()
         except HermesAuthError:
             raise  # Auth errors are never transient
-        except HermesApiError:
-            raise  # HTTP/API errors are not transient
+        except HermesApiError as err:
+            if not getattr(err, "transient", False):
+                raise  # HTTP/API errors are not transient
+            # Connection-level failure wrapped into HermesApiError — retryable
+            last_exc = err
+            if attempt < MAX_RETRIES:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "Hermes %s attempt %d/%d failed: %s. Retrying in %.1fs …",
+                    name, attempt + 1, MAX_RETRIES + 1, err, delay,
+                )
+                await asyncio.sleep(delay)
         except (aiohttp.ClientError, TimeoutError) as err:
             last_exc = err
             if attempt < MAX_RETRIES:
@@ -377,8 +403,19 @@ async def _retry_stream(
             return  # stream completed successfully
         except HermesAuthError:
             raise
-        except HermesApiError:
-            raise
+        except HermesApiError as err:
+            if not getattr(err, "transient", False) or delivered:
+                # HTTP/API errors are not transient; transient errors after
+                # content was delivered must never trigger a replay.
+                raise
+            last_exc = err
+            if attempt < MAX_RETRIES:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "Hermes %s attempt %d/%d failed: %s. Retrying in %.1fs …",
+                    name, attempt + 1, MAX_RETRIES + 1, err, delay,
+                )
+                await asyncio.sleep(delay)
         except (aiohttp.ClientError, TimeoutError) as err:
             if delivered:
                 # Stream broke after content was delivered — never replay.
