@@ -38,6 +38,10 @@ class HermesCoordinator(DataUpdateCoordinator[dict]):
         )
         self.client = client
         self.entry = entry
+        # The session-persistence switch entity registers itself here so the
+        # conversation agent reads the actual object instead of a hardcoded
+        # entity_id (breaks with multiple entries or entity renames).
+        self.session_switch: object | None = None
         self._last_latency_ms: int | None = None
         self._prompt_tokens: int = 0
         self._completion_tokens: int = 0

@@ -150,14 +150,22 @@ class HermesClient:
         self._model = model or MODEL_ID
         self._provider = provider
         self._timeout = aiohttp.ClientTimeout(total=timeout)
-        # Stream requests also abort when the server stops sending data
+        # Stream requests: no total cap (server-side tool execution can take
+        # minutes) — the idle guard aborts when the server stops sending, and
+        # the byte caps below bound the total data volume.
         self._stream_timeout = aiohttp.ClientTimeout(
-            total=timeout, sock_read=SSE_IDLE_TIMEOUT
+            total=None, sock_read=SSE_IDLE_TIMEOUT
         )
         # False = plain HTTP (aiohttp ignores ssl for http URLs)
         self._ssl: ssl_module.SSLContext | bool = False
         if use_ssl:
-            if ssl_cert_path and Path(ssl_cert_path).is_file():
+            if ssl_cert_path:
+                if not Path(ssl_cert_path).is_file():
+                    # Never silently downgrade a requested pin to the system
+                    # CA store — surface the misconfiguration to the user.
+                    raise FileNotFoundError(
+                        f"SSL certificate file not found: {ssl_cert_path}"
+                    )
                 # Pin the gateway certificate: only this CA/cert is trusted
                 self._ssl = ssl_module.create_default_context(
                     cafile=ssl_cert_path
@@ -216,6 +224,8 @@ class HermesClient:
                 if resp.status != 200:
                     return []
                 data = await resp.json()
+                if not isinstance(data, dict):
+                    return []
                 return [m.get("id", "") for m in data.get("data", []) if m.get("id")]
         except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError) as err:
             _LOGGER.debug("Failed to fetch models: %s", err)
@@ -274,7 +284,18 @@ class HermesClient:
                     ) from err
                 returned_sid = resp.headers.get(HEADER_SESSION_ID) or session_id
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise HermesApiError(f"Chat request failed: {err}", transient=True) from err
+            # TLS misconfiguration (wrong/self-signed cert without pin) is a
+            # permanent condition — retrying with backoff would just amplify.
+            is_transient = not isinstance(
+                err,
+                (
+                    aiohttp.ClientConnectorCertificateError,
+                    aiohttp.ClientConnectorSSLError,
+                ),
+            )
+            raise HermesApiError(
+                f"Chat request failed: {err}", transient=is_transient
+            ) from err
 
         latency_ms = _monotonic_ms() - loop
 
@@ -374,7 +395,15 @@ class HermesClient:
                 # endless line or an endless stream must not grow unbounded.
                 total = 0
                 while True:
-                    raw_line = await resp.content.readline()
+                    try:
+                        raw_line = await resp.content.readline()
+                    except ValueError as err:
+                        # aiohttp's readuntil raises when the line exceeds its
+                        # internal buffer limit — treat like our own line cap
+                        # (non-transient: the peer is misbehaving, not the link)
+                        raise HermesApiError(
+                            f"SSE line too long: {err}"
+                        ) from err
                     if not raw_line:
                         break
                     total += len(raw_line)
@@ -411,8 +440,16 @@ class HermesClient:
                         _LOGGER.debug("SSE parse error: %s", data_str[:100])
                         continue
         except (aiohttp.ClientError, TimeoutError) as err:
+            is_transient = not isinstance(
+                err,
+                (
+                    aiohttp.ClientConnectorCertificateError,
+                    aiohttp.ClientConnectorSSLError,
+                ),
+            )
             raise HermesApiError(
-                f"Chat stream failed: {type(err).__name__}: {err}", transient=True
+                f"Chat stream failed: {type(err).__name__}: {err}",
+                transient=is_transient,
             ) from err
 
 
@@ -516,6 +553,4 @@ async def _retry_stream(
     msg = f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
     if coordinator is not None and hasattr(coordinator, "record_error"):
         coordinator.record_error(msg)
-    raise HermesApiError(
-        f"{name} failed after {MAX_RETRIES + 1} attempts: {last_exc}"
-    ) from last_exc
+    raise HermesApiError(msg) from last_exc
