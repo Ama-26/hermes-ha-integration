@@ -89,7 +89,7 @@ class HermesConversationEntity(
 
         # Session persistence via the registered switch entity (not a hardcoded
         # entity_id — that breaks with multiple entries or entity renames).
-        # No switch registered yet (platform ordering) → persistence on.
+        # None until the switch platform has registered → persistence on.
         switch = self._coordinator.session_switch
         persistence_enabled = switch is None or getattr(switch, "is_on", True)
         session_id = (

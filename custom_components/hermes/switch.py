@@ -58,6 +58,11 @@ class HermesSessionPersistenceSwitch(SwitchEntity, RestoreEntity):
         if last is not None:
             self._attr_is_on = last.state == "on"
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Deregister so the conversation agent doesn't read a stale entity."""
+        if self._coordinator.session_switch is self:
+            self._coordinator.session_switch = None
+
     @property
     def is_on(self) -> bool:
         """Return True if session persistence is enabled."""
