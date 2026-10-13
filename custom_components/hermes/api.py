@@ -35,6 +35,24 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _safe_int(value: object, default: int = 0) -> int:
+    """Coerce *value* to a non-negative int, tolerating None/garbage.
+
+    Gateway-supplied usage fields are untrusted: a ``None``/string value must
+    not raise, and absurd/negative values must not poison token counters.
+    """
+    if not isinstance(value, int) or isinstance(value, bool):
+        return default
+    return max(0, value)
+
+
+def _log_safe(text: str) -> str:
+    """Strip control characters from a gateway-supplied log fragment."""
+    return "".join(
+        ch if ch.isprintable() else " " for ch in text
+    )[:200]
+
+
 class HermesApiError(Exception):
     """Raised when the Hermes API server returns an error or is unreachable."""
 
@@ -183,7 +201,7 @@ class HermesClient:
                 if resp.status != 200:
                     body = await resp.text()
                     raise HermesApiError(
-                        f"Chat failed: HTTP {resp.status}: {body[:200]}"
+                        f"Chat failed: HTTP {resp.status}: {_log_safe(body)}"
                     )
                 data = await resp.json()
                 returned_sid = resp.headers.get(HEADER_SESSION_ID) or session_id
@@ -201,8 +219,8 @@ class HermesClient:
         return HermesChatResult(
             content=content.strip(),
             session_id=returned_sid,
-            prompt_tokens=int(usage.get("prompt_tokens", 0)),
-            completion_tokens=int(usage.get("completion_tokens", 0)),
+            prompt_tokens=_safe_int(usage.get("prompt_tokens")),
+            completion_tokens=_safe_int(usage.get("completion_tokens")),
             latency_ms=latency_ms,
         )
 
@@ -258,7 +276,7 @@ class HermesClient:
                 if resp.status != 200:
                     body = await resp.text()
                     raise HermesApiError(
-                        f"Chat stream failed: HTTP {resp.status}: {body[:200]}"
+                        f"Chat stream failed: HTTP {resp.status}: {_log_safe(body)}"
                     )
 
                 # Capture the session id from response headers for continuity
@@ -279,8 +297,8 @@ class HermesClient:
                         if "usage" in data:
                             usage = data["usage"]
                             self._last_stream_usage = {
-                                "prompt_tokens": int(usage.get("prompt_tokens", 0)),
-                                "completion_tokens": int(usage.get("completion_tokens", 0)),
+                                "prompt_tokens": _safe_int(usage.get("prompt_tokens")),
+                                "completion_tokens": _safe_int(usage.get("completion_tokens")),
                             }
                         choices = data.get("choices", [])
                         if choices:
@@ -343,13 +361,18 @@ async def _retry_stream(
 
     Unlike ``_retry``, this wraps an async generator — if the first
     chunk arrives successfully we assume the stream is established and
-    let subsequent errors propagate without retry.
+    let subsequent errors propagate without retry. Once at least one
+    chunk has been yielded, a failure aborts the stream instead of
+    replaying (which would duplicate already-delivered content and
+    incur duplicate provider cost).
     """
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES + 1):
+        delivered = False
         try:
             gen = fn()
             async for chunk in gen:
+                delivered = True
                 yield chunk
             return  # stream completed successfully
         except HermesAuthError:
@@ -357,6 +380,9 @@ async def _retry_stream(
         except HermesApiError:
             raise
         except (aiohttp.ClientError, TimeoutError) as err:
+            if delivered:
+                # Stream broke after content was delivered — never replay.
+                raise
             last_exc = err
             if attempt < MAX_RETRIES:
                 delay = RETRY_BASE_DELAY * (2 ** attempt)

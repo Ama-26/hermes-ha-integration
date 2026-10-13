@@ -43,5 +43,8 @@ HEALTH_POLL_INTERVAL = 30  # seconds
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds, doubles each attempt
 
+# Conversation session map: bounded LRU of conversation_id -> server session id
+MAX_SESSIONS = 64
+
 # Error sensor
 ERROR_CLEAR_AFTER = timedelta(hours=1)
