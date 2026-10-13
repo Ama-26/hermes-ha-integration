@@ -131,8 +131,14 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
                     data=user_input,
                 )
 
+        # Re-show with the user's input preserved on validation errors —
+        # retyping the API key because of one wrong field is hostile UX.
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_SCHEMA, suggested_values=user_input or {}
+            ),
+            errors=errors,
         )
 
     @staticmethod

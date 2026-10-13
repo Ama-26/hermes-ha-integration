@@ -86,12 +86,17 @@ class HermesConversationEntity(
         # devices share one server session (context bleed) and grow the dict
         # unboundedly. Without a conversation_id each turn gets a fresh session.
         conversation_id = user_input.conversation_id
-        session_id = self._sessions.get(conversation_id) if conversation_id else None
 
-        # Check session persistence switch
-        switch_state = self.hass.states.get("switch.hermes_session_persistence")
-        if switch_state is not None and switch_state.state == "off":
-            session_id = None  # force fresh session
+        # Session persistence via the registered switch entity (not a hardcoded
+        # entity_id — that breaks with multiple entries or entity renames).
+        # No switch registered yet (platform ordering) → persistence on.
+        switch = self._coordinator.session_switch
+        persistence_enabled = switch is None or getattr(switch, "is_on", True)
+        session_id = (
+            self._sessions.get(conversation_id)
+            if conversation_id and persistence_enabled
+            else None
+        )
 
         # Per-call stream context: session id and usage land here instead of
         # shared client state — a concurrent notify stream can no longer
@@ -128,7 +133,7 @@ class HermesConversationEntity(
 
         # Persist the server-side session id for conversation continuity
         # (only when session persistence is enabled)
-        if switch_state is None or switch_state.state != "off":
+        if persistence_enabled:
             if conversation_id and (sid := stream_ctx.get("session_id")):
                 self._sessions[conversation_id] = sid
                 self._sessions.move_to_end(conversation_id)

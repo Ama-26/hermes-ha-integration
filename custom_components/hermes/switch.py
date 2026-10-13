@@ -10,6 +10,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
+from .coordinator import HermesCoordinator
 
 import logging
 
@@ -22,7 +23,8 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the session persistence switch."""
-    async_add_entities([HermesSessionPersistenceSwitch(entry)])
+    coordinator: HermesCoordinator = entry.runtime_data
+    async_add_entities([HermesSessionPersistenceSwitch(entry, coordinator)])
 
 
 class HermesSessionPersistenceSwitch(SwitchEntity, RestoreEntity):
@@ -33,8 +35,13 @@ class HermesSessionPersistenceSwitch(SwitchEntity, RestoreEntity):
     _attr_name = "Hermes Session Persistence"
     _attr_icon = "mdi:chat-history"
 
-    def __init__(self, entry: ConfigEntry) -> None:
-        """Initialise."""
+    def __init__(
+        self, entry: ConfigEntry, coordinator: HermesCoordinator
+    ) -> None:
+        """Initialise and register with the coordinator."""
+        super().__init__()
+        self._coordinator = coordinator
+        coordinator.session_switch = self
         self._attr_unique_id = f"{entry.entry_id}_session_persistence"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
