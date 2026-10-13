@@ -61,8 +61,10 @@ class HermesNotifyEntity(NotifyEntity):
         """
         text = f"{title}: {message}" if title else message
         try:
+            # notification=True marks this turn as fire-and-forget
+            # (hermes_notification_category=diagnostic in the payload)
             async for _ in self._coordinator.client.async_chat_stream(
-                text, session_id=None
+                text, session_id=None, notification=True
             ):
                 pass  # Consume the stream; we don't need the response
         except Exception:

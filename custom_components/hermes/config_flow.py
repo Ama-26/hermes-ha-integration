@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import ssl as ssl_module
 from typing import Any
 
 import voluptuous as vol
@@ -22,7 +23,9 @@ from .const import (
     CONF_PORT,
     CONF_PROFILE,
     CONF_PROVIDER,
+    CONF_SSL_CERT_PATH,
     CONF_TIMEOUT,
+    CONF_USE_SSL,
     DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROFILE,
@@ -77,6 +80,8 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): vol.In(
             [""] + PROVIDER_OPTIONS
         ),
+        vol.Optional(CONF_USE_SSL, default=False): bool,
+        vol.Optional(CONF_SSL_CERT_PATH, default=""): str,
     }
 )
 
@@ -93,22 +98,27 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            client = HermesClient(
-                self.hass,
-                host=user_input[CONF_HOST],
-                port=user_input[CONF_PORT],
-                api_key=user_input[CONF_API_KEY],
-                profile=user_input[CONF_PROFILE],
-                timeout=DEFAULT_TIMEOUT,
-                model=user_input.get(CONF_MODEL, DEFAULT_MODEL),
-                provider=user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER),
-            )
             try:
+                client = HermesClient(
+                    self.hass,
+                    host=user_input[CONF_HOST],
+                    port=user_input[CONF_PORT],
+                    api_key=user_input[CONF_API_KEY],
+                    profile=user_input[CONF_PROFILE],
+                    timeout=DEFAULT_TIMEOUT,
+                    model=user_input.get(CONF_MODEL, DEFAULT_MODEL),
+                    provider=user_input.get(CONF_PROVIDER, DEFAULT_PROVIDER),
+                    use_ssl=user_input.get(CONF_USE_SSL, False),
+                    ssl_cert_path=user_input.get(CONF_SSL_CERT_PATH, ""),
+                )
                 await client.async_validate()
             except HermesAuthError:
                 errors["base"] = "invalid_auth"
             except HermesApiError:
                 errors["base"] = "cannot_connect"
+            except (OSError, ssl_module.SSLError) as err:
+                _LOGGER.warning("SSL certificate setup failed: %s", err)
+                errors["base"] = "invalid_cert"
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("Unexpected error validating Hermes")
                 errors["base"] = "unknown"
@@ -139,20 +149,25 @@ class HermesConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            client = HermesClient(
-                self.hass,
-                host=user_input[CONF_HOST],
-                port=user_input[CONF_PORT],
-                api_key=user_input[CONF_API_KEY],
-                profile=user_input[CONF_PROFILE],
-                timeout=DEFAULT_TIMEOUT,
-            )
             try:
+                client = HermesClient(
+                    self.hass,
+                    host=user_input[CONF_HOST],
+                    port=user_input[CONF_PORT],
+                    api_key=user_input[CONF_API_KEY],
+                    profile=user_input[CONF_PROFILE],
+                    timeout=DEFAULT_TIMEOUT,
+                    use_ssl=user_input.get(CONF_USE_SSL, False),
+                    ssl_cert_path=user_input.get(CONF_SSL_CERT_PATH, ""),
+                )
                 await client.async_validate()
             except HermesAuthError:
                 errors["base"] = "invalid_auth"
             except HermesApiError:
                 errors["base"] = "cannot_connect"
+            except (OSError, ssl_module.SSLError) as err:
+                _LOGGER.warning("SSL certificate setup failed: %s", err)
+                errors["base"] = "invalid_cert"
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("Unexpected error validating Hermes")
                 errors["base"] = "unknown"

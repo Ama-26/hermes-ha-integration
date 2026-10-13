@@ -16,7 +16,9 @@ from .const import (
     CONF_PORT,
     CONF_PROFILE,
     CONF_PROVIDER,
+    CONF_SSL_CERT_PATH,
     CONF_TIMEOUT,
+    CONF_USE_SSL,
     DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROFILE,
@@ -52,6 +54,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         provider=entry.options.get(
             CONF_PROVIDER, entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
         ),
+        use_ssl=entry.data.get(CONF_USE_SSL, False),
+        ssl_cert_path=entry.data.get(CONF_SSL_CERT_PATH, ""),
     )
 
     coordinator = HermesCoordinator(hass, entry, client)
