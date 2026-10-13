@@ -20,6 +20,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 import aiohttp
+from aiohttp.http_exceptions import LineTooLong
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.core import HomeAssistant
 
@@ -397,10 +398,11 @@ class HermesClient:
                 while True:
                     try:
                         raw_line = await resp.content.readline()
-                    except ValueError as err:
-                        # aiohttp's readuntil raises when the line exceeds its
-                        # internal buffer limit — treat like our own line cap
-                        # (non-transient: the peer is misbehaving, not the link)
+                    except (ValueError, LineTooLong) as err:
+                        # aiohttp raises LineTooLong when a line exceeds its
+                        # internal buffer limit (not a ValueError subclass!)
+                        # — treat like our own line cap (non-transient: the
+                        # peer is misbehaving, not the link)
                         raise HermesApiError(
                             f"SSE line too long: {err}"
                         ) from err
