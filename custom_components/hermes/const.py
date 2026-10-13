@@ -46,5 +46,12 @@ RETRY_BASE_DELAY = 1.0  # seconds, doubles each attempt
 # Conversation session map: bounded LRU of conversation_id -> server session id
 MAX_SESSIONS = 64
 
+# Response/stream byte caps (gateway-supplied data is untrusted; without a cap
+# a compromised gateway could OOM the HA core by sending an endless response)
+MAX_RESPONSE_BYTES = 2_000_000  # chat JSON body
+MAX_SSE_LINE_BYTES = 64_000     # single SSE line
+MAX_STREAM_BYTES = 10_000_000   # total SSE stream
+SSE_IDLE_TIMEOUT = 30  # seconds without any socket data during a stream
+
 # Error sensor
 ERROR_CLEAR_AFTER = timedelta(hours=1)
