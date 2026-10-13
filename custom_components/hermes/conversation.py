@@ -12,6 +12,7 @@ so TTS can start before the full response is generated.
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
@@ -21,7 +22,7 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import HermesApiError
-from .const import DOMAIN
+from .const import DOMAIN, MAX_SESSIONS
 from .coordinator import HermesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,8 +62,8 @@ class HermesConversationEntity(
             manufacturer="Nous Research",
             model="Hermes Agent",
         )
-        # Maps HA conversation_id -> Hermes server session id
-        self._sessions: dict[str, str] = {}
+        # Maps HA conversation_id -> Hermes server session id (bounded LRU)
+        self._sessions: OrderedDict[str, str] = OrderedDict()
 
     @property
     def supported_languages(self) -> list[str] | str:
@@ -80,8 +81,12 @@ class HermesConversationEntity(
         so TTS can start before the full response is available.
         Falls back to non-streaming if the client doesn't support it.
         """
-        conversation_id = user_input.conversation_id or user_input.text
-        session_id = self._sessions.get(conversation_id)
+        # Only real HA conversation_ids are used as session keys. Falling back
+        # to the raw utterance text would let identical phrases from different
+        # devices share one server session (context bleed) and grow the dict
+        # unboundedly. Without a conversation_id each turn gets a fresh session.
+        conversation_id = user_input.conversation_id
+        session_id = self._sessions.get(conversation_id) if conversation_id else None
 
         # Check session persistence switch
         switch_state = self.hass.states.get("switch.hermes_session_persistence")
@@ -120,8 +125,11 @@ class HermesConversationEntity(
         # Persist the server-side session id for conversation continuity
         # (only when session persistence is enabled)
         if switch_state is None or switch_state.state != "off":
-            if (sid := self._coordinator.client._last_stream_session_id):
+            if conversation_id and (sid := self._coordinator.client._last_stream_session_id):
                 self._sessions[conversation_id] = sid
+                self._sessions.move_to_end(conversation_id)
+                while len(self._sessions) > MAX_SESSIONS:
+                    self._sessions.popitem(last=False)
 
         # Record token usage from the stream
         usage = self._coordinator.client._last_stream_usage
