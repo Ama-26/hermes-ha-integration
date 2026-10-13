@@ -71,7 +71,7 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
         vol.Required(CONF_API_KEY): str,
         vol.Required(CONF_PROFILE, default=DEFAULT_PROFILE): vol.Match(
-            r"^[A-Za-z0-9._-]{1,64}$"
+            r"^[A-Za-z0-9._-]{1,64}\Z"
         ),
         vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
         vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): vol.In(

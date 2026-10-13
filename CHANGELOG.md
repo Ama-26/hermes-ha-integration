@@ -2,6 +2,19 @@
 
 All notable changes to the Hermes HA Integration.
 
+## [0.3.2] - 2026-10-13
+
+### Security (Audit Run 1 + Run 2: 8 confirmed findings fixed or mitigated)
+
+- Stream retry no longer replays after the first delivered chunk — previously a mid-stream error restarted the whole request, duplicating already-delivered output, cost and token metering (docstring/code contradiction resolved; pre-chunk transient errors are now actually retried via a `transient` marker on `HermesApiError`)
+- Removed active zeroconf/mDNS discovery listener (spoofing surface for API-key phishing; was documented as "dormant" but live)
+- Conversation session map is now a bounded LRU (64) and no longer uses raw utterance text as session key — no unbounded memory growth, no cross-device context bleed; turns without a HA `conversation_id` get a fresh session
+- `profile` config value validated against `^[A-Za-z0-9._-]{1,64}\Z` (URL-path injection hardening)
+- Gateway usage fields parsed defensively (`_safe_int`: bool/None/garbage/negative tolerated, floats and numeric strings accepted); gateway error bodies sanitized before logging (`_log_safe`, 200 chars, control-char free, sliced before materialization)
+
+### Fixed
+- Stream retry: non-transient HTTP/API errors abort immediately instead of being retried (previously inconsistent between `_retry` and `_retry_stream`)
+
 ## [0.3.1] - 2026-10-10
 
 ### Fixed
