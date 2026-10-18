@@ -21,6 +21,7 @@ from .const import (
     CONF_HOST,
     CONF_MODEL,
     CONF_PORT,
+    CONF_PREFER_LOCAL,
     CONF_PROFILE,
     CONF_PROVIDER,
     CONF_SSL_CERT_PATH,
@@ -28,6 +29,7 @@ from .const import (
     CONF_USE_SSL,
     DEFAULT_MODEL,
     DEFAULT_PORT,
+    DEFAULT_PREFER_LOCAL,
     DEFAULT_PROFILE,
     DEFAULT_PROVIDER,
     DEFAULT_TIMEOUT,
@@ -212,6 +214,9 @@ class HermesOptionsFlow(OptionsFlow):
         current_provider = self.config_entry.options.get(
             CONF_PROVIDER, self.config_entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
         )
+        current_prefer_local = self.config_entry.options.get(
+            CONF_PREFER_LOCAL, DEFAULT_PREFER_LOCAL
+        )
         schema = vol.Schema(
             {
                 vol.Required(CONF_TIMEOUT, default=current_timeout): vol.All(
@@ -221,6 +226,9 @@ class HermesOptionsFlow(OptionsFlow):
                 vol.Optional(CONF_PROVIDER, default=current_provider): vol.In(
                     [""] + PROVIDER_OPTIONS
                 ),
+                vol.Optional(
+                    CONF_PREFER_LOCAL, default=current_prefer_local
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

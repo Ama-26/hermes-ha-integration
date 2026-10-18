@@ -7,12 +7,19 @@ a server-side Hermes session id (X-Hermes-Session-Id).
 
 Streaming is supported via SSE — content deltas are fed into HA's chat_log
 so TTS can start before the full response is generated.
+
+Local-first (default on): before asking Hermes, the utterance is offered to
+Home Assistant's own conversation agent. HA matches exposed entities by name
+and alias and runs the intent in a few milliseconds — no LLM round, no session.
+Only utterances HA does *not* understand fall through to Hermes.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import OrderedDict
+from typing import Any, Mapping
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
@@ -22,10 +29,46 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import HermesApiError
-from .const import DOMAIN, MAX_SESSIONS
+from .const import (
+    CONF_PREFER_LOCAL,
+    DEFAULT_PREFER_LOCAL,
+    DOMAIN,
+    LOCAL_ACCEPTED_RESPONSE_TYPES,
+    LOCAL_AGENT_ID,
+    LOCAL_INTENT_TIMEOUT,
+    MAX_SESSIONS,
+)
 from .coordinator import HermesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def local_answer_speech(payload: Any) -> str | None:
+    """Return the speech of a *definitive* local answer, else ``None``.
+
+    ``None`` means "HA did not understand this" and the utterance goes to
+    Hermes. The payload comes from the conversation service and its shape is
+    HA-owned, so every access is defensive: a missing key, an unexpected
+    ``response_type`` or an empty answer must never raise inside the
+    conversation path — it must fall back.
+    """
+    if not isinstance(payload, Mapping):
+        return None
+    response = payload.get("response")
+    if not isinstance(response, Mapping):
+        return None
+    if response.get("response_type") not in LOCAL_ACCEPTED_RESPONSE_TYPES:
+        return None
+    speech = response.get("speech")
+    if not isinstance(speech, Mapping):
+        return None
+    plain = speech.get("plain")
+    if not isinstance(plain, Mapping):
+        return None
+    text = plain.get("speech")
+    if not isinstance(text, str) or not text.strip():
+        return None
+    return text.strip()
 
 
 async def async_setup_entry(
@@ -70,6 +113,69 @@ class HermesConversationEntity(
         """Return supported languages. Hermes handles any language."""
         return conversation.MATCH_ALL
 
+    @property
+    def _prefer_local(self) -> bool:
+        """Whether HA's own agent may answer before Hermes is asked."""
+        return bool(
+            self._entry.options.get(CONF_PREFER_LOCAL, DEFAULT_PREFER_LOCAL)
+        )
+
+    async def _async_local_result(
+        self, user_input: conversation.ConversationInput
+    ) -> conversation.ConversationResult | None:
+        """Let HA's own agent answer, or return ``None`` to defer to Hermes.
+
+        HA resolves exposed entities by name and alias (including aliases) in
+        milliseconds and executes the intent directly. Anything HA does not
+        understand — an unknown name, an unsupported intent — comes back as an
+        error response and returns ``None`` here, so Hermes still gets to
+        handle it.
+        """
+        agent_id = LOCAL_AGENT_ID
+        if not agent_id or agent_id == self.entity_id:
+            return None
+
+        try:
+            payload = await asyncio.wait_for(
+                self.hass.services.async_call(
+                    conversation.DOMAIN,
+                    "process",
+                    {"text": user_input.text, "agent_id": agent_id},
+                    blocking=True,
+                    return_response=True,
+                    context=user_input.context,
+                ),
+                timeout=LOCAL_INTENT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            # The local agent may still be executing the intent. Handing the
+            # same utterance to Hermes as well could run the action twice —
+            # a doubly executed command is worse than a slow answer.
+            _LOGGER.warning(
+                "Local intent resolution timed out after %ss; not deferring to "
+                "Hermes to avoid running the command twice",
+                LOCAL_INTENT_TIMEOUT,
+            )
+            return _error_result("Das hat zu lange gedauert.", user_input)
+        except Exception as err:  # noqa: BLE001 — any local failure defers to Hermes
+            _LOGGER.debug(
+                "Local intent check failed (%s): %r — deferring to Hermes",
+                type(err).__name__,
+                err,
+            )
+            return None
+
+        speech = local_answer_speech(payload)
+        if speech is None:
+            return None
+
+        _LOGGER.debug("Answered locally by %s: %r", agent_id, speech)
+        response = intent.IntentResponse(language=user_input.language)
+        response.async_set_speech(speech)
+        return conversation.ConversationResult(
+            response=response, conversation_id=user_input.conversation_id
+        )
+
     async def _async_handle_message(
         self,
         user_input: conversation.ConversationInput,
@@ -81,6 +187,13 @@ class HermesConversationEntity(
         so TTS can start before the full response is available.
         Falls back to non-streaming if the client doesn't support it.
         """
+        # Local first: HA's own agent answers known devices in a few
+        # milliseconds. Promise nothing to Hermes until that came back empty.
+        if self._prefer_local:
+            local = await self._async_local_result(user_input)
+            if local is not None:
+                return local
+
         # Only real HA conversation_ids are used as session keys. Falling back
         # to the raw utterance text would let identical phrases from different
         # devices share one server session (context bleed) and grow the dict

@@ -14,6 +14,7 @@ CONF_PROFILE = "profile"
 CONF_MODEL = "model"
 CONF_PROVIDER = "provider"
 CONF_TIMEOUT = "timeout"
+CONF_PREFER_LOCAL = "prefer_local_intents"
 
 # Defaults
 DEFAULT_PORT = 8642
@@ -21,6 +22,19 @@ DEFAULT_PROFILE = "default"
 DEFAULT_MODEL = ""  # empty = use API server default
 DEFAULT_PROVIDER = ""  # empty = use API server default
 DEFAULT_TIMEOUT = 60
+DEFAULT_PREFER_LOCAL = True
+
+# Local-first intent resolution (see conversation.py)
+# HA's own agent resolves exposed entities by name/alias in a few milliseconds
+# and executes the intent directly — no LLM round, no server session. This is
+# what makes "turn the computer plug off" a sub-second command instead of a
+# multi-round agent run.
+LOCAL_AGENT_ID = "conversation.home_assistant"
+LOCAL_INTENT_TIMEOUT = 5.0  # seconds; local intents answer in ~50 ms
+# Only a *definitive* answer may short-circuit Hermes. An error response
+# ("Keine Etage mit dem Namen …") means HA did not understand the utterance and
+# the request must go to Hermes instead.
+LOCAL_ACCEPTED_RESPONSE_TYPES = frozenset({"action_done", "query_answer"})
 
 # API paths
 PATH_HEALTH = "/health"

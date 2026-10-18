@@ -7,6 +7,7 @@ A native Home Assistant custom integration that connects [Hermes Agent](https://
 ## Features
 
 - **Conversation Agent** — Registers as a HA Assist Pipeline agent. Voice commands are forwarded to the Hermes Gateway API and the response is spoken back via TTS.
+- **Local-first (default on)** — Before Hermes is asked, the utterance is offered to Home Assistant's own conversation agent. Simple commands and status questions HA already understands (lights, covers, switches — matched by name and alias) are answered locally in milliseconds, with no model call; everything else still goes to Hermes. Toggle: Settings → Devices & Services → Hermes → Configure → *Try Home Assistant locally first*.
 - **Session Continuity** — Multi-turn conversations preserve context via `X-Hermes-Session-Id` headers.
 - **Profile Routing** — Each config entry targets a specific Hermes profile. Use `default`, `voicepe`, `worker`, or any profile you've configured. Multiple entries supported.
 - **Status Sensors** — `binary_sensor.hermes_connected` (gateway reachable), `sensor.hermes_latency` (last response time in ms), `sensor.hermes_model` (served model id).
@@ -18,7 +19,10 @@ A native Home Assistant custom integration that connects [Hermes Agent](https://
 ```
 HA Assist Pipeline / VoicePE
   │
-  ├─ conversation.hermes ──── POST /p/<profile>/v1/chat/completions
+  ├─ conversation.hermes ─┬─ conversation.home_assistant (local, ~50 ms)
+  │                       │    name/alias match → intent answered, model skipped
+  │                       │    not understood → falls through
+  │                       └─ POST /p/<profile>/v1/chat/completions
   │                            (Hermes Gateway API :8642)
   │                                │
   ├─ binary_sensor.connected ──── /health (30s poll)

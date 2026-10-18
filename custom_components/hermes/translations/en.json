@@ -61,11 +61,13 @@
         "data": {
           "timeout": "Request timeout (seconds)",
           "model": "Model override (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "prefer_local_intents": "Try Home Assistant locally first"
         },
         "data_description": {
           "model": "e.g. google/gemini-2.5-flash. Leave empty for server default.",
-          "provider": "e.g. openrouter. Leave empty for server default."
+          "provider": "e.g. openrouter. Leave empty for server default.",
+          "prefer_local_intents": "When on, simple commands and status questions Home Assistant understands by itself (lights, covers, switches, state queries — by name and alias) are answered by Home Assistant directly (milliseconds, no model call). Everything else still goes to Hermes. Off = every request goes to Hermes."
         }
       }
     }

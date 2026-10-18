@@ -2,6 +2,20 @@
 
 All notable changes to the Hermes HA Integration.
 
+## [Unreleased]
+
+### Added
+
+- **Local-first intent resolution** (`prefer_local_intents`, default on): the conversation agent now offers each utterance to Home Assistant's own agent (`conversation.home_assistant`) before calling Hermes. Definitive local answers (`action_done`, `query_answer`) are returned directly — a name/alias match executes in ~50 ms with no model call, no server session and no token cost. Anything HA does not understand (error response, unknown name, unsupported intent) falls through to Hermes unchanged
+- New option *Try Home Assistant locally first* in the options flow (DE/EN translations)
+
+### Notes
+
+- Only a definitive answer short-circuits Hermes: the response payload is parsed defensively and any unexpected shape falls back to Hermes rather than answering wrongly
+- A local timeout (5 s) returns an error instead of falling back — the local intent may still be executing, and running a command twice is worse than a slow answer
+- Local answers intentionally do not touch the Hermes sensors (latency, tokens, last interaction); those keep measuring Hermes traffic only
+- Self-reference guard: if the configured local agent were this integration's own entity, the local step is skipped
+
 ## [0.4.0] - 2026-10-13
 
 ### Security (Batch 2, audit findings C5 + C6)

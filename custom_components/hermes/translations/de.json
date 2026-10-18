@@ -61,11 +61,13 @@
         "data": {
           "timeout": "Anfrage-Timeout (Sekunden)",
           "model": "Modell-Override (optional)",
-          "provider": "Provider (optional)"
+          "provider": "Provider (optional)",
+          "prefer_local_intents": "Zuerst lokal in Home Assistant versuchen"
         },
         "data_description": {
           "model": "z.B. google/gemini-2.5-flash. Leer lassen für Server-Default.",
-          "provider": "z.B. openrouter. Leer lassen für Server-Default."
+          "provider": "z.B. openrouter. Leer lassen für Server-Default.",
+          "prefer_local_intents": "Ist das an: einfache Befehle und Abfragen, die Home Assistant selbst versteht (Licht, Rollladen, Steckdose, Zustandsfragen — Namen und Aliase), werden direkt von Home Assistant beantwortet (Millisekunden, kein Modellaufruf). Alles andere geht weiter an Hermes. Aus = jede Anfrage geht an Hermes."
         }
       }
     }
