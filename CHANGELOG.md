@@ -2,7 +2,7 @@
 
 All notable changes to the Hermes HA Integration.
 
-## [Unreleased]
+## [1.4.1] - 2026-10-18
 
 ### Added
 
